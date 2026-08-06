@@ -1,0 +1,16 @@
+# Normalise line endings. The Makefile in particular must keep LF: CRLF in a
+# recipe line makes GNU make pass a stray carriage return to the shell.
+* text=auto eol=lf
+
+Makefile text eol=lf
+*.py text eol=lf
+*.toml text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+*.parquet binary
+*.pdf binary
+*.rda binary
+*.tar.gz binary
+*.png binary
