@@ -124,6 +124,35 @@ make app             # Streamlit dashboard (reads cached artifacts only)
 | `make lint` | ruff check + format check |
 | `make app` | Launch the Streamlit dashboard |
 
+<details>
+<summary><b>No <code>make</code> on your machine? (Windows without Git Bash / MSYS)</b></summary>
+
+Every target is a thin wrapper around one command. The direct equivalents, from the
+repo root with the venv active:
+
+```bash
+# make setup
+python -m venv .venv && .venv/Scripts/python -m pip install -e ".[dev]"
+
+# make baseline   ← the offline acceptance criterion
+python -m dengue.eval.backtest --synthetic --n-weeks 520 --stride 4
+
+# make panel
+python -m dengue.features.build_panel --features
+
+# make test / lint
+python -m pytest -m "not network"
+python -m ruff check src tests app && python -m ruff format --check src tests app
+
+# make app
+python -m streamlit run app/streamlit_app.py
+```
+
+Note `clean` and `clean-data` use `find`/`rm`, so those two targets need a POSIX
+shell (Git Bash, WSL, macOS, Linux).
+
+</details>
+
 ---
 
 ## Data provenance
