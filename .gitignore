@@ -1,0 +1,58 @@
+# --- data & artifacts (never commit case data or model outputs) ---
+data/*
+!data/.gitkeep
+!data/raw/
+!data/interim/
+!data/processed/
+data/raw/*
+data/interim/*
+data/processed/*
+!data/raw/.gitkeep
+!data/interim/.gitkeep
+!data/processed/.gitkeep
+
+artifacts/*
+!artifacts/.gitkeep
+
+# --- python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+.installed.cfg
+
+# --- envs ---
+.venv/
+venv/
+env/
+.env
+.python-version
+
+# --- tooling caches ---
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+.hypothesis/
+
+# --- notebooks (exploration only, never source of truth) ---
+.ipynb_checkpoints/
+notebooks/**/*.ipynb
+
+# --- editors / OS ---
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- streamlit ---
+.streamlit/secrets.toml
