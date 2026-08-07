@@ -130,11 +130,12 @@ def test_models_beat_a_constant_zero_forecast(panel):
 
 
 # --------------------------------------------------------------------------
-# Stubs must fail loudly
+# Remaining stubs must still fail loudly
 # --------------------------------------------------------------------------
 
 
 def test_stgnn_raises_not_implemented(panel):
+    """STGNN is the one model still scaffolded; it must not return placeholders."""
     model = STGNN()
     with pytest.raises(NotImplementedError, match="not implemented"):
         model.fit(panel)
@@ -142,18 +143,41 @@ def test_stgnn_raises_not_implemented(panel):
         model.predict(panel, horizon=2)
 
 
-def test_stage2_stub_raises_not_implemented(panel):
-    from dengue.causal.sei_sir import build_effect_table, fit_sei_sir
-
-    with pytest.raises(NotImplementedError, match="Stage 2"):
-        fit_sei_sir(panel, "colombo")
-    with pytest.raises(NotImplementedError, match="Stage 2"):
-        build_effect_table(panel, pd.DataFrame())
+# --------------------------------------------------------------------------
+# Stages 2 and 3 are implemented -- verify they are wired, not stubbed
+# --------------------------------------------------------------------------
 
 
-def test_stage3_stub_raises_not_implemented():
+def test_stage2_is_implemented(panel):
+    """Stage 2 must return real fitted parameters, not raise."""
+    from dengue.causal.sei_sir import SEISIRParameters, fit_sei_sir
+
+    params = fit_sei_sir(panel, "colombo")
+    assert isinstance(params, SEISIRParameters)
+    assert params.r0_base > 0
+    assert np.isfinite(params.log_likelihood)
+
+
+def test_stage3_is_implemented():
+    """Stage 3 must solve a real program to optimality."""
     from dengue.optim.allocate import AllocationConstraints, allocate
 
-    constraints = AllocationConstraints(total_team_weeks=50)
-    with pytest.raises(NotImplementedError, match="Stage 3"):
-        allocate(pd.DataFrame(), constraints, pd.Period("2026-08-03", freq=config.WEEK_FREQ))
+    effect_table = pd.DataFrame(
+        {
+            "district_id": ["colombo"] * 3 + ["gampaha"] * 3,
+            "team_weeks": [0, 1, 2] * 2,
+            "cases_averted_mean": [0.0, 9.0, 15.0, 0.0, 6.0, 11.0],
+        }
+    )
+    constraints = AllocationConstraints(
+        total_team_weeks=2, min_teams_high_risk=0, max_weekly_change=None
+    )
+    result = allocate(
+        effect_table,
+        constraints,
+        pd.Period("2026-08-03", freq=config.WEEK_FREQ),
+        compute_shadow_price=False,
+    )
+    assert result.solver_status == "Optimal"
+    assert result.budget_used <= 2
+    assert result.expected_cases_averted == pytest.approx(15.0)
