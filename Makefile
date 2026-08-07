@@ -68,6 +68,10 @@ data:  ## Run every ingest step (requires network)
 	-$(PY) -m dengue.ingest.reliefweb
 	@echo ">> WER pdf parser (library; supply PDFs explicitly)"
 	-$(PY) -m dengue.ingest.wer_pdf
+	@echo ">>> district boundaries (OCHA/HDX, CC-BY-IGO)"
+	-$(PY) -m dengue.ingest.boundaries
+	@echo ">>> health facilities (OpenStreetMap ODbL + World Bank CC-BY)"
+	-$(PY) -m dengue.ingest.health_facilities
 	@echo ">> ingest finished (individual sources may have been skipped; see the log)"
 
 panel:  ## Build data/processed/panel.parquet from the ingested sources
