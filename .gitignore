@@ -56,3 +56,6 @@ desktop.ini
 
 # --- streamlit ---
 .streamlit/secrets.toml
+
+# local run logs
+*.log
