@@ -222,6 +222,84 @@ def build_district_risk(
     return latest.sort_values(["horizon", "incidence_per_100k"], ascending=[True, False])
 
 
+def run_platform_layer(
+    panel: pd.DataFrame,
+    district_risk: pd.DataFrame,
+    effect_table: pd.DataFrame,
+    parameters: dict | None = None,
+) -> dict[str, pd.DataFrame]:
+    """Build the role-facing artifacts: capacity, readiness, scenarios, budget.
+
+    Runs after Stages 1-3 because every one of these is derived from their
+    outputs. Failures here are logged and skipped rather than aborting the run:
+    the epidemiological stages are the load-bearing part, and a missing
+    readiness table should not cost you the forecast.
+    """
+    from dengue.optim.budget import budget_sweep
+    from dengue.platform.hospital import build_readiness_table
+
+    out: dict[str, pd.DataFrame] = {}
+
+    # --- health facilities and estimated bed capacity ---
+    try:
+        from dengue.ingest.health_facilities import build_district_capacity, load
+
+        facilities, capacity = load()
+        out["health_facilities"] = facilities
+        out["district_capacity"] = capacity
+        log.info("pipeline/platform: capacity for %d districts", len(capacity))
+    except Exception as exc:
+        log.error("pipeline/platform: facility ingest failed (%s)", exc)
+        from dengue.ingest.health_facilities import build_district_capacity
+
+        # Bed density is the load-bearing input; locations are a nice-to-have.
+        capacity = build_district_capacity(None, beds_per_1000=3.93)
+        out["district_capacity"] = capacity
+
+    # --- hospital readiness, per horizon ---
+    try:
+        frames = [
+            build_readiness_table(district_risk, capacity, horizon_weeks=h)
+            for h in sorted(district_risk["horizon"].dropna().unique())
+        ]
+        out["hospital_readiness"] = pd.concat(frames, ignore_index=True)
+        log.info("pipeline/platform: readiness rows=%d", len(out["hospital_readiness"]))
+    except Exception as exc:
+        log.error("pipeline/platform: readiness failed (%s)", exc)
+
+    # --- scenarios (mechanistic, so only where Stage 2 fitted) ---
+    if parameters:
+        try:
+            from dengue.platform.scenario import build_scenario_table
+
+            # Scenarios are ODE integrations; restrict to the districts a planner
+            # would actually be looking at rather than burning minutes on all 25.
+            top = (
+                district_risk[district_risk["horizon"] == district_risk["horizon"].min()]
+                .nlargest(8, "incidence_per_100k")["district_id"]
+                .astype(str)
+                .tolist()
+            )
+            out["scenarios"] = build_scenario_table(parameters, panel, district_ids=top)
+        except Exception as exc:
+            log.error("pipeline/platform: scenarios failed (%s)", exc)
+
+    # --- budget optimiser sweep ---
+    try:
+        max_effect = float(
+            effect_table[effect_table["team_weeks"] == effect_table["team_weeks"].max()][
+                "cases_averted_mean"
+            ].sum()
+        )
+        budgets = [float(b) * 1e6 for b in range(5, 105, 5)]
+        out["budget_sweep"] = budget_sweep(budgets, vector_max_effect=max_effect)
+        log.info("pipeline/platform: budget sweep rows=%d", len(out["budget_sweep"]))
+    except Exception as exc:
+        log.error("pipeline/platform: budget sweep failed (%s)", exc)
+
+    return out
+
+
 def main(argv: list[str] | None = None) -> dict[str, pd.DataFrame]:
     """Run all three stages and write every dashboard artifact."""
     parser = argparse.ArgumentParser(description="Run the full 3-stage dengue pipeline.")
@@ -282,16 +360,27 @@ def main(argv: list[str] | None = None) -> dict[str, pd.DataFrame]:
 
     # ---- Stage 2 ------------------------------------------------------
     effect_path = config.ARTIFACTS_DIR / "effect_table.parquet"
+    parameters: dict | None = None
     if args.skip_stage2 and effect_path.exists():
         effect_table = pd.read_parquet(effect_path)
         params_frame = pd.DataFrame()
-        log.info("pipeline/stage2: reusing cached effect table (%d rows)", len(effect_table))
+        # Fitted parameter objects are not recoverable from the cached table, so
+        # scenario simulation (which needs them) is skipped in this mode.
+        log.info(
+            "pipeline/stage2: reusing cached effect table (%d rows); " "scenarios will be skipped",
+            len(effect_table),
+        )
     else:
-        effect_table, params_frame = run_stage2(
+        from dengue.causal.sei_sir import build_effect_table, fit_all_districts
+
+        parameters = fit_all_districts(panel)
+        params_frame = pd.DataFrame([asdict(p) for p in parameters.values()])
+        effect_table = build_effect_table(
             panel,
-            forecasts,
+            parameters,
             max_team_weeks=args.max_team_weeks,
             horizon_weeks=args.effect_horizon,
+            forecasts=forecasts,
         )
 
     # ---- Stage 3 ------------------------------------------------------
@@ -303,6 +392,9 @@ def main(argv: list[str] | None = None) -> dict[str, pd.DataFrame]:
         max_teams_per_district=args.max_team_weeks,
     )
 
+    # ---- Stage 4: platform layer --------------------------------------
+    platform_artifacts = run_platform_layer(panel, district_risk, effect_table, parameters)
+
     # ---- artifacts ----------------------------------------------------
     recent_weeks = sorted(panel["iso_week"].unique())[-104:]
     artifacts: dict[str, pd.DataFrame] = {
@@ -312,6 +404,7 @@ def main(argv: list[str] | None = None) -> dict[str, pd.DataFrame]:
         "effect_table": effect_table,
         "allocation_sweep": sweep,
         "allocation_summary": summary,
+        **platform_artifacts,
     }
     if not params_frame.empty:
         artifacts["sei_sir_params"] = params_frame
