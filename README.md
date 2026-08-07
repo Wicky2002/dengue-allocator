@@ -1,8 +1,37 @@
 # dengue-allocator
 
-**Forecast → causal effect → allocation pipeline for dengue vector control in Sri Lanka.**
+**A national dengue decision-support platform for Sri Lanka** — forecast → causal
+effect → allocation, behind four role-based portals.
 
 AI Challenge Sri Lanka 2026 — Phase 1 submission.
+
+---
+
+## The one thing to read first
+
+This platform puts three very different kinds of number on the same screen:
+
+| | Example | What it is |
+|---|---|---|
+| **Observed** | 1,231 health facilities; 3.93 beds per 1,000 | Measured and published by a named authority |
+| **Modelled** | 107 cases forecast for Colombo in 2 weeks | Model output from observed inputs, with an interval |
+| **Planning estimate** | 59 admissions, 14 platelet units | Published clinical ratios applied to a forecast |
+
+Rendered identically, the third borrows the credibility of the first — and that is
+how a decision-support tool causes a bad decision. So **every quantity carries a
+provenance tier**, enforced in code rather than by discipline: a `Quantity` tagged
+`ASSUMED` *cannot be constructed* without stating its basis.
+
+```python
+>>> Quantity(100.0, ProvenanceTier.ASSUMED, "beds")
+ValueError: A Quantity tagged ASSUMED must state its basis. An unexplained
+planning estimate is indistinguishable from a fabricated number.
+```
+
+**Where no public data exists, the platform says so instead of showing a number.**
+Live bed occupancy, ICU census, platelet stock, staffing rosters and ambulance
+positions are not published for Sri Lanka — those panels render an explanation and
+a note about what feed would enable them.
 
 ---
 
@@ -193,7 +222,11 @@ shell (Git Bash, WSL, macOS, Linux).
 | **Open-Meteo Archive** | Daily precipitation, T-max/min, relative humidity per district centroid | 2010-01-01 → present | **CC-BY-4.0** | [archive-api.open-meteo.com](https://archive-api.open-meteo.com/v1/archive) |
 | **ReliefWeb API v2** | NDCU / MoH situation reports; high-risk MOH area counts | 1996 → present | Per originating org | [api.reliefweb.int/v2](https://apidoc.reliefweb.int/) |
 | **Epidemiology Unit WER** | District-level notifiable-disease tables (26 RDHS rows) | 2007 → present | Sri Lanka MoH publication | [epid.gov.lk](https://www.epid.gov.lk/weekly-epidemiological-report/) |
+| **OCHA / HDX** (`cod-ab-lka`) | District boundary polygons for the maps | v03, 2022 | **CC-BY-IGO** | [data.humdata.org](https://data.humdata.org/dataset/cod-ab-lka) |
+| **OpenStreetMap** (Overpass) | 1,231 hospital & clinic locations | live | **ODbL-1.0** | [openstreetmap.org](https://www.openstreetmap.org/copyright) |
+| **World Bank** (`SH.MED.BEDS.ZS`) | Hospital beds per 1,000 — national | 3.93 (2023) | **CC-BY-4.0** | [data.worldbank.org](https://data.worldbank.org/indicator/SH.MED.BEDS.ZS) |
 | Dept. of Census & Statistics | District populations, land areas | 2023 projections | Government publication | [statistics.gov.lk](http://www.statistics.gov.lk/) |
+| *Clinical planning ratios* | Hospitalisation %, ICU %, LOS, platelet demand | — | *literature — **not** Sri Lankan measurements* | `platform/hospital.py` |
 
 ### Source status, verified 2026-08
 
@@ -203,6 +236,10 @@ shell (Git Bash, WSL, macOS, Linux).
 | Open-Meteo | ✅ **Working** | All four daily variables confirmed served. No API key. |
 | ReliefWeb | ⚠️ **Gated** | **v1 is decommissioned (HTTP 410).** v2 is current but returns **HTTP 403** without a *pre-approved* `appname` (required since 2025-11-01). Module targets v2 and raises with remediation steps. Request an appname at [reliefweb.int/contact](https://reliefweb.int/contact), then set `RELIEFWEB_APPNAME` in `.env`. |
 | WER PDFs | ⚠️ **Parser ready, no automated discovery** | epid.gov.lk is reachable but its WER index is paginated HTML with no stable machine-readable feed. The parser is implemented and unit-tested against a synthetic fixture; supply PDFs explicitly via `wer_pdf.load({iso_week: path})`. |
+| HDX boundaries | ✅ **Working** | 25/25 districts matched to the registry; simplified 133 MB → 175 KB and committed. |
+| OSM facilities | ✅ **Working** (locations only) | 1,231 facilities across all 25 districts. **Bed tagging is 1/1,231**, so capacity is estimated, not measured. |
+| World Bank beds | ✅ **Working** | 3.93 beds per 1,000 (2023) → ~87,000 national beds. |
+| Hospital occupancy / ICU / platelet stock / staffing | ❌ **No public source exists** | Not published for Sri Lanka. These panels show an explanation, never a placeholder number. |
 
 > **No case numbers are ever fabricated.** When a source fails, the pipeline raises,
 > logs loudly, and falls back to a **clearly labelled synthetic panel** — simulated
@@ -421,25 +458,94 @@ app/
 tests/                   schema · leakage · names · folds · causal · optim
 ```
 
-## The dashboard
+## The platform — four portals
 
-`make app` serves a five-tab Streamlit dashboard: **Overview**, **① Forecast**,
-**② Intervention effect**, **③ Allocation**, and **Model performance**.
+`make app` serves role-based portals over the same engine. **Different users see
+different information**, because a citizen does not need hospital occupancy and a
+regional officer does not need nationwide user management.
 
-Two things about it are deliberate:
+| Role | Sees |
+|---|---|
+| **Public** | Risk map, district forecast, trends, prevention advice, alerts, education |
+| **Hospital staff** | + projected admissions, ICU, bed occupancy, supply demand, staffing, facility map |
+| **MOH / Regional officer** | + hotspots, team deployment, intervention schedule, scenarios, budget optimiser |
+| **National administrator** | + nationwide view, data provenance, model config, roles, system health |
 
-**It never computes at request time.** Every figure comes from a Parquet artifact
-written by `make pipeline`. A dashboard that recomputes on page load is unusable
-during an outbreak, when the cost of a slow page is a delayed decision.
+Three design decisions worth stating.
 
-**The budget slider looks like it re-solves the ILP. It does not.** `make pipeline`
-solves the program across a grid of 15 budgets × 2 risk postures × 2 strategies —
-60 scenarios, about 5 seconds — and caches them. The slider indexes a lookup table.
-Full interactivity, zero runtime solving.
+**Permissions are additive by rank; scope is orthogonal to them.** A hospital
+administrator and an MOH officer may hold overlapping permissions while seeing
+entirely different *rows* — one scoped to a facility, one to a district. Collapsing
+"what you may do" and "what you may see" into a single level is the usual way health
+dashboards leak data across regions, so `Principal` carries both. A role that should
+be district-scoped **cannot be constructed without a district**:
+
+```python
+>>> Principal(Role.MOH_OFFICER, "unscoped")
+ValueError: Role 'moh_officer' must be scoped to at least one district.
+An empty district list means nationwide access, which this role must not have.
+```
+
+**The public portal is a deny-by-default subset, not a redaction.** It is built from
+the permissions the public role actually holds, rather than by computing the full
+picture and hiding parts. A bug then shows *missing* information instead of exposing
+hospital occupancy.
+
+**Nothing computes at request time.** Every figure is a cached Parquet artifact. The
+budget slider looks like it re-solves the ILP; it does not — `make pipeline` solves
+60 scenarios ahead of time and the slider indexes a lookup. Same for the scenario
+simulator, which is an ODE integration.
+
+### Maps
+
+District choropleths use **OCHA/HDX Common Operational Dataset** boundaries
+(CC-BY-IGO) — the boundaries UN humanitarian responders actually use. The raw admin-2
+layer is 22 MB inside a 133 MB archive; `ingest/boundaries.py` simplifies it
+(Douglas-Peucker + 4 dp coordinates) to **175 KB**, small enough to commit so the app
+renders offline.
+
+Facility locations are **real**: 1,231 hospitals and clinics from OpenStreetMap
+(ODbL). Bed counts are *not* — only 1 of 1,231 facilities carries a `beds` tag, so
+per-facility capacity is not shown and district capacity is estimated from World Bank
+national bed density instead.
 
 Charts use a validated categorical palette in fixed slot order (the ordering is the
 colourblind-safety mechanism, not decoration), a single-hue blue ramp for magnitude,
-and reserved status colours that are never reused as a series.
+and reserved status colours never reused as a series. Rainfall-versus-cases is drawn
+as **stacked panels, not a dual axis** — two y-scales let the author manufacture any
+apparent correlation by choosing the scales, which is exactly the claim that figure
+is making.
+
+### Scenario simulator
+
+"What if heavy rain next week?" re-integrates the **fitted SEI-SIR model** with a
+perturbed input. It is not a lookup table, and that matters: rain raises carrying
+capacity, which raises the vector population weeks later, which raises transmission
+after the incubation period. A tool built on a regression coefficient would show an
+instant bump. This one shows the lag, because the lag is in the model — and it shows
+that heavy rain *plus* a heatwave is worse than the sum of the two, because more
+mosquitoes and a shorter incubation period multiply rather than add.
+
+### Budget optimiser
+
+Splits an envelope across vector control, awareness, hospital preparedness and
+emergency reserve, using concave return curves and greedy marginal allocation
+(provably optimal for concave objectives — the water-filling argument).
+
+| Envelope | Vector | Awareness | Hospital | Reserve | Marginal return |
+|--:|--:|--:|--:|--:|--:|
+| LKR 5M | 60% | 15% | 15% | 10% | — |
+| LKR 20M | 51% | 22% | 17% | 10% | +47 per extra M |
+| LKR 80M | 42% | 20% | 28% | 10% | +15 per extra M |
+
+The split **shifts** as the envelope grows: vector control saturates, so money moves
+to hospital preparedness. That shift is the useful output.
+
+> **Only the vector-control curve is anchored to a model** (Stage 2's effect table).
+> The other three use assumed elasticities, not measured Sri Lankan
+> cost-effectiveness. Read the recommendation as a structured argument about
+> trade-offs, not as an evidence-based funding instruction — and the UI says exactly
+> that on the page.
 
 ---
 
