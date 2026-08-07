@@ -15,6 +15,7 @@ dependencies = [
     "numpy==1.26.4",
     "pandas==2.2.2",
     "pyarrow==16.1.0",
+    "scipy>=1.11,<2",
     "scikit-learn==1.5.0",
     "lightgbm==4.3.0",
     "statsmodels==0.14.2",
@@ -60,10 +61,19 @@ select = ["E", "F", "I", "UP", "B", "SIM", "C4", "RUF"]
 ignore = [
     "B008",    # function call in default arg - used deliberately for Path defaults
     "RUF012",  # mutable class attrs need ClassVar - noisy for simple model configs
+    # Typographic characters (en dash, minus sign, Greek rho) and emoji are
+    # deliberate in dashboard copy and docstrings. Flagging them as "ambiguous"
+    # would push the UI toward ASCII-only text, which reads worse.
+    "RUF001",
+    "RUF002",
+    "RUF003",
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["E501"]
+# Streamlit apps are top-to-bottom scripts: module-level statements after the
+# sys.path shim are the intended structure, not a lint violation.
+"app/*" = ["E402"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["dengue"]

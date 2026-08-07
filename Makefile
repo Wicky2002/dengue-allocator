@@ -21,11 +21,14 @@ RUFF        := $(PY) -m ruff
 STREAMLIT   := $(PY) -m streamlit
 
 # Synthetic panel size for the offline acceptance run (~10 years).
-N_WEEKS     ?= 520
-STRIDE      ?= 4
+N_WEEKS        ?= 520
+STRIDE         ?= 4
+# The pipeline refits SEI-SIR per district, so it uses a shorter window.
+PIPELINE_WEEKS ?= 320
 
 .DEFAULT_GOAL := help
-.PHONY: help setup setup-full data panel baseline test lint format app clean clean-data check
+.PHONY: help setup setup-full data panel panel-synthetic baseline baseline-real \
+        pipeline pipeline-real all test test-all lint format app clean clean-data check
 
 help:  ## Show this help
 	@echo "dengue-allocator targets:"
@@ -82,6 +85,14 @@ baseline:  ## Train all Stage 1 baselines and print the comparison table
 
 baseline-real:  ## Same, but against data/processed/panel.parquet
 	$(PY) -m dengue.eval.backtest --stride $(STRIDE)
+
+pipeline:  ## Run all 3 stages and write every dashboard artifact (offline)
+	$(PY) -m dengue.pipeline --synthetic --n-weeks $(PIPELINE_WEEKS)
+
+pipeline-real:  ## Same, but against data/processed/panel.parquet
+	$(PY) -m dengue.pipeline
+
+all: baseline pipeline  ## Backtest + full pipeline, everything the app needs
 
 # --------------------------------------------------------------------------
 # Quality
