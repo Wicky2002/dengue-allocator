@@ -26,8 +26,8 @@ genuinely different questions:
 | Stage | Question | Method | Status |
 |---|---|---|---|
 | **1. Forecast** | Where will cases be in 2–4 weeks, and how confident are we? | Probabilistic district-level quantile forecasts | ✅ **Implemented** |
-| **2. Effect** | How many cases does sending *k* teams to district *d* actually avert? | Mechanistic SEI-SIR compartmental model | 🚧 Scaffolded |
-| **3. Allocate** | Given a fixed weekly budget, where do teams go? | Integer linear program | 🚧 Scaffolded |
+| **2. Effect** | How many cases does sending *k* teams to district *d* actually avert? | Mechanistic SEI-SIR compartmental model, intervened on directly | ✅ **Implemented** |
+| **3. Allocate** | Given a fixed weekly budget, where do teams go? | Integer linear program (PuLP/CBC) | ✅ **Implemented** |
 
 ### Why three stages instead of one model
 
@@ -39,13 +39,16 @@ top of the list. That is wrong for a reason worth stating plainly:
 > team-weeks therefore recovers a *positive* coefficient — the model concludes
 > that vector control causes dengue.
 
-Stage 2 exists to break that confounding by modelling transmission mechanistically
-and intervening on vector parameters directly. Stage 3 exists because the returns
-to control effort **saturate** — the tenth team in Colombo averts far fewer cases
-than the first team in Gampaha — so the optimal allocation is not a sorted list.
+Stage 2 breaks that confounding by modelling transmission mechanistically and
+intervening on the vector parameters directly — a genuine *do*-operation on a
+simulated system, not an association read off history. Stage 3 exists because the
+returns to control effort **saturate**: the tenth team in Colombo averts far fewer
+cases than the first team in Gampaha, so the optimal allocation is not a sorted
+list.
 
-**This session delivers Stage 1 end to end, plus the evaluation harness.** Stages 2
-and 3 ship as typed signatures with full design notes and `NotImplementedError`.
+**All three stages are implemented and wired end to end**, with a dashboard over
+the top. The one remaining stub is the STGNN (`models/stgnn.py`), a planned Stage 1
+upgrade.
 
 ---
 
@@ -78,15 +81,38 @@ and 3 ship as typed signatures with full design notes and `NotImplementedError`.
                     │  pinball · coverage · MAE/MAPE · lead time  │
                     └──────────────────────┬──────────────────────┘
                                            ▼
-   STAGE 2 🚧       ┌─────────────────────────────────────────────┐
-   causal           │  SEI-SIR → cases averted per team-week      │
+   STAGE 2          ┌─────────────────────────────────────────────┐
+   causal           │  SEI-SIR fitted per district, then the      │
+                    │  vector parameters INTERVENED on:           │
+                    │  adulticide ↑μ_v · source reduction ↓K      │
+                    │  → concave cases-averted curve per district │
                     └──────────────────────┬──────────────────────┘
                                            ▼
-   STAGE 3 🚧       ┌─────────────────────────────────────────────┐
-   allocate         │  ILP: maximise averted cases s.t. budget,   │
-                    │  high-risk floor, per-district cap          │
+   STAGE 3          ┌─────────────────────────────────────────────┐
+   allocate         │  ILP over x[d,k] ∈ {0,1}: maximise averted  │
+                    │  cases s.t. budget, high-risk floor,        │
+                    │  per-district cap, weekly continuity        │
+                    └──────────────────────┬──────────────────────┘
+                                           ▼
+                    ┌─────────────────────────────────────────────┐
+   dashboard        │  Streamlit — reads cached artifacts only,   │
+                    │  never computes at request time             │
                     └─────────────────────────────────────────────┘
 ```
+
+### Why the stages compose the way they do
+
+Stage 2 supplies the **shape** of each district's response curve — its concavity
+and how districts differ from one another. Stage 1 supplies the **level** — how
+many cases are actually at stake in the next few weeks. `build_effect_table`
+joins them by anchoring each district's mechanistic baseline to its Stage 1
+forecast. That split matters because the mechanistic model's absolute scale is
+not trustworthy (see the ρ identifiability note below), while its relative
+structure is.
+
+Stage 3 then consumes only the effect curves. It never sees the raw forecast,
+which keeps the optimisation honest: everything it optimises against has already
+been through the causal step.
 
 ---
 
@@ -99,11 +125,13 @@ git clone https://github.com/OWNER/dengue-allocator.git
 cd dengue-allocator
 
 make setup       # venv + pinned deps (uses uv when available, else venv+pip)
-make baseline    # trains all Stage 1 baselines, prints the comparison table
+make baseline    # Stage 1 backtest — prints the model comparison table
+make pipeline    # all 3 stages — writes every dashboard artifact
+make app         # launch the dashboard
 ```
 
-**`make baseline` runs fully offline** against a synthetic panel. That is the
-acceptance criterion for the scaffold: no network, no API keys, no manual steps.
+**Both `make baseline` and `make pipeline` run fully offline** against a synthetic
+panel: no network, no API keys, no manual steps.
 
 To run against real data:
 
@@ -111,7 +139,7 @@ To run against real data:
 make data            # run every ingest step (needs network)
 make panel           # assemble data/processed/panel.parquet
 make baseline-real   # backtest against the real panel
-make app             # Streamlit dashboard (reads cached artifacts only)
+make pipeline-real   # all 3 stages against the real panel
 ```
 
 | Target | What it does |
@@ -120,6 +148,8 @@ make app             # Streamlit dashboard (reads cached artifacts only)
 | `make data` | Run all four ingest modules |
 | `make panel` | Build the district-week panel + feature matrix |
 | `make baseline` | **Offline** backtest of all Stage 1 models, prints comparison table |
+| `make pipeline` | **Offline** run of all 3 stages, writes dashboard artifacts |
+| `make all` | `baseline` + `pipeline` |
 | `make test` | Run the test suite (no network) |
 | `make lint` | ruff check + format check |
 | `make app` | Launch the Streamlit dashboard |
@@ -315,6 +345,52 @@ stride 8. Reproduce with `make baseline`.
   became a problem. A perfectly accurate forecast delivered the same week has zero
   operational value.
 
+### Stage 2 — fitted SEI-SIR
+
+25/25 districts converged. Median R₀ **2.92** (range 0.95–5.08), which sits in the
+plausible band for endemic dengue; R₀ < 1 districts are the low-burden northern ones
+where transmission is import-driven rather than self-sustaining.
+
+The effect curves are **monotone and concave** in every district — tested, not
+assumed (`tests/test_causal.py::test_returns_diminish`). That property is what makes
+the Stage 3 piecewise-linear representation exact rather than an approximation.
+
+> **ρ is fixed, not fitted.** R₀ and the reporting fraction trade off almost exactly:
+> halving both produces nearly the same notified-case curve, so fitting both yields a
+> ridge rather than a peak. ρ is pinned at 0.10 from the serological literature and
+> three parameters are fitted per district. **The absolute scale of averted cases
+> inherits that assumption.** The district *ranking* — which is all Stage 3 consumes —
+> is far more robust to it, and `sensitivity_to_reporting_fraction()` measures this
+> rather than asserting it.
+
+### Stage 3 — allocation
+
+Budget sweep, median risk posture, 25 districts, cap 12 teams/district, high-risk
+floor of 2:
+
+| Budget (team-weeks) | Rank-and-fill | **ILP** | ILP uplift | Shadow price |
+|--:|--:|--:|--:|--:|
+| 20 | 93.0 | **93.3** | +0.3% | 4.93 |
+| 40 | 159.6 | **171.6** | +7.5% | 3.28 |
+| 60 | 220.6 | **230.3** | +4.4% | 2.65 |
+| 100 | 306.5 | **320.9** | +4.7% | 1.97 |
+| 160 | 398.2 | **414.8** | +4.2% | 1.21 |
+
+**Median ILP uplift over rank-and-fill: +4.2%**, at zero extra operational cost —
+the same teams, the same constraints, just placed better.
+
+The **shadow price** is the marginal cases averted per additional team-week, from the
+LP relaxation's dual on the budget constraint. It falls monotonically from 4.93 to
+1.21 across the sweep, which is the number that answers "should we fund more teams?"
+— and it says the 20th team is worth about four times the 160th.
+
+> **A note on how this comparison is constructed.** An earlier version of the greedy
+> baseline ignored the high-risk floor, and consequently "beat" the ILP by 10% at tight
+> budgets — not because rank-and-fill is better, but because it was solving an easier,
+> operationally infeasible problem. Both strategies now satisfy identical constraints,
+> so the margin above comes from allocation logic alone. There is a regression test
+> pinning this (`test_greedy_honours_the_high_risk_floor`).
+
 ---
 
 ## Repository layout
@@ -332,15 +408,38 @@ src/dengue/
     baseline.py          SeasonalNaive, SarimaBaseline
     lgbm_quantile.py     pooled LightGBM quantile regression
     stgnn.py             🚧 stub — GraphSAGE + GRU, pinball loss
-  causal/sei_sir.py      🚧 Stage 2 stub
-  optim/allocate.py      🚧 Stage 3 stub
+  causal/sei_sir.py      Stage 2 — SEI-SIR, fitting, intervention effects
+  optim/allocate.py      Stage 3 — allocation ILP, budget sweep, greedy baseline
   eval/
     backtest.py          rolling-origin harness + `make baseline` CLI
     metrics.py           pinball, coverage, MAE/MAPE, lead time
+  pipeline.py            all 3 stages end to end + `make pipeline` CLI
   utils/                 io, logging, synthetic panel
-app/streamlit_app.py     dashboard — reads cached artifacts, never runs a model
-tests/                   schema · leakage · name normalisation · fold ordering
+app/
+  streamlit_app.py       dashboard — reads cached artifacts, never computes
+  theme.py               validated palette + Altair theme
+tests/                   schema · leakage · names · folds · causal · optim
 ```
+
+## The dashboard
+
+`make app` serves a five-tab Streamlit dashboard: **Overview**, **① Forecast**,
+**② Intervention effect**, **③ Allocation**, and **Model performance**.
+
+Two things about it are deliberate:
+
+**It never computes at request time.** Every figure comes from a Parquet artifact
+written by `make pipeline`. A dashboard that recomputes on page load is unusable
+during an outbreak, when the cost of a slow page is a delayed decision.
+
+**The budget slider looks like it re-solves the ILP. It does not.** `make pipeline`
+solves the program across a grid of 15 budgets × 2 risk postures × 2 strategies —
+60 scenarios, about 5 seconds — and caches them. The slider indexes a lookup table.
+Full interactivity, zero runtime solving.
+
+Charts use a validated categorical palette in fixed slot order (the ordering is the
+colourblind-safety mechanism, not decoration), a single-hue blue ramp for magnitude,
+and reserved status colours that are never reused as a series.
 
 ---
 
@@ -370,8 +469,20 @@ Pooling learns the shared climate-transmission response from high-volume distric
 while `district_id` and `log_pop_density` absorb level differences.
 
 **The Streamlit app never calls a model.** Everything it renders is materialised to
-`artifacts/*.parquet` by `make baseline`. A dashboard that retrains on page load is
+`artifacts/*.parquet` by `make pipeline`. A dashboard that retrains on page load is
 unusable during an outbreak, when the cost of a slow page is a delayed decision.
+
+**Stage 2 uses one binary per (district, intensity level), not one integer per
+district.** A single integer variable would force a *linear* effect assumption and
+throw away exactly the diminishing returns that make the problem interesting. The
+binary-per-level encoding represents the concave curve exactly while keeping the
+program linear — and because the per-district constraint makes each district's
+variables a special-ordered set, CBC solves these in milliseconds.
+
+**Stage 2 integrates daily, not weekly.** The EIP and the mosquito lifespan are both
+1–2 weeks, so a weekly step would smear the two processes the model exists to
+separate. Daily steps aggregated to ISO weeks cost ~8s per district fit, which is
+affordable at 25 districts.
 
 ---
 
