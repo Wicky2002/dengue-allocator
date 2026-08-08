@@ -183,8 +183,82 @@ PAGE_CSS = f"""
   }}
 
   section[data-testid="stSidebar"] {{ border-right: 1px solid var(--hairline); }}
-  .stTabs [data-baseweb="tab"] {{ font-size: 14px; }}
-  div[data-testid="stDataFrame"] {{ border-radius: 8px; }}
+  section[data-testid="stSidebar"] > div {{ background: var(--page); }}
+
+  /* Tabs: recessive by default, on-brand underline when active -- the
+     default Streamlit look uses its own red-orange accent here regardless of
+     [theme].primaryColor, so this has to be set explicitly. */
+  .stTabs [data-baseweb="tab"] {{
+    font-size: 14px;
+    color: var(--ink-2);
+  }}
+  .stTabs [aria-selected="true"] {{
+    color: var(--ink-1) !important;
+    font-weight: 600;
+  }}
+  .stTabs [data-baseweb="tab-highlight"] {{
+    background-color: var(--series-1) !important;
+    height: 2px;
+  }}
+  .stTabs [data-baseweb="tab-border"] {{ background-color: var(--hairline); }}
+
+  /* Buttons: match the categorical palette rather than Streamlit's default. */
+  .stButton > button {{
+    border-radius: 8px;
+    border: 1px solid var(--hairline);
+    font-weight: 550;
+  }}
+  .stButton > button[kind="primary"] {{
+    background: var(--series-1);
+    border-color: var(--series-1);
+  }}
+  .stButton > button[kind="primary"]:hover {{
+    background: #1c5cab;
+    border-color: #1c5cab;
+  }}
+
+  /* Dataframe / table chrome. */
+  div[data-testid="stDataFrame"] {{ border-radius: 8px; border: 1px solid var(--hairline); }}
+  div[data-testid="stDataFrame"] [role="columnheader"] {{
+    background: var(--page);
+    color: var(--ink-2);
+    font-weight: 600;
+  }}
+
+  /* st.metric: align its default look with the KPI tile system. */
+  div[data-testid="stMetric"] {{
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }}
+  div[data-testid="stMetricLabel"] {{ color: var(--ink-3); }}
+  div[data-testid="stMetricValue"] {{ color: var(--ink-1); }}
+
+  /* Slider handle/track on brand. */
+  div[data-testid="stSlider"] [role="slider"] {{ background-color: var(--series-1); }}
+
+  /* Product header (see app_header() in streamlit_app.py). */
+  .app-header {{
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 2px;
+  }}
+  .app-header .mark {{ font-size: 26px; line-height: 1; }}
+  .app-header .title {{
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--ink-1);
+    letter-spacing: -.01em;
+  }}
+  .app-meta {{ font-size: 12.5px; color: var(--ink-3); margin-top: 2px; }}
+
+  /* This is a demo dashboard, not a deployed Streamlit Cloud app -- the
+     "Deploy" affordance is noise; [client].toolbarMode = "minimal" in
+     .streamlit/config.toml already hides it, this is the CSS-only fallback
+     for Streamlit versions where that setting isn't honoured. */
+  [data-testid="stToolbarActions"] button[title="Deploy this app"] {{ display: none; }}
 </style>
 """
 
@@ -198,4 +272,23 @@ def kpi_html(label: str, value: str, sub: str = "", accent: str = "accent") -> s
         f'<div class="kpi-label">{label}</div>'
         f'<div class="kpi-value">{value}</div>'
         f"{sub_html}</div>"
+    )
+
+
+def app_header(title: str, subtitle: str, meta: str = "") -> str:
+    """Product-style page header: mark + title + subtitle, small meta line.
+
+    Replaces a plain ``st.title()`` / ``st.caption()`` stack, which is what
+    every default Streamlit app looks like. Reuses the same design tokens as
+    the KPI tiles so the header reads as part of one system rather than a
+    Streamlit default sitting above custom components.
+    """
+    meta_html = f'<div class="app-meta">{meta}</div>' if meta else ""
+    return (
+        '<div class="app-header">'
+        '<span class="mark">🦟</span>'
+        f'<span class="title">{title}</span>'
+        "</div>"
+        f'<div class="kpi-sub" style="margin-top:2px;">{subtitle}</div>'
+        f"{meta_html}"
     )

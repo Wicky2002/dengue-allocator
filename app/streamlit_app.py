@@ -34,8 +34,14 @@ for extra in (REPO_ROOT / "src", REPO_ROOT / "app"):
     if str(extra) not in sys.path:
         sys.path.insert(0, str(extra))
 
-from portals import admin_portal, hospital_portal, moh_portal, public_portal
-from theme import PAGE_CSS, register_theme
+from portals import (
+    admin_portal,
+    hospital_portal,
+    moh_portal,
+    national_overview,
+    public_portal,
+)
+from theme import PAGE_CSS, app_header, register_theme
 
 from dengue import config
 from dengue.platform.rbac import DEMO_PRINCIPALS, Role
@@ -140,10 +146,18 @@ with st.sidebar:
 # Header
 # --------------------------------------------------------------------------
 
-st.title("Dengue Allocator")
-st.caption(
-    f"Forecast → causal effect → allocation · **{role.label}** portal · "
-    f"{principal.scope_label()}"
+meta_line = ""
+if meta is not None and not meta.empty:
+    meta_line = f"Pipeline run {str(meta.iloc[0]['generated_at'])[:16].replace('T', ' ')} UTC"
+
+st.markdown(
+    app_header(
+        "Dengue Allocator",
+        f"Forecast → causal effect → allocation · <strong>{role.label}</strong> portal · "
+        f"{principal.scope_label()}",
+        meta_line,
+    ),
+    unsafe_allow_html=True,
 )
 
 if is_synthetic:
@@ -153,6 +167,13 @@ if is_synthetic:
         "Run `make panel && make pipeline` against real sources for live figures.",
         icon="🔬",
     )
+
+# --------------------------------------------------------------------------
+# National overview -- identical for every role, before anything role-scoped
+# --------------------------------------------------------------------------
+
+national_overview(data, horizon)
+st.divider()
 
 # --------------------------------------------------------------------------
 # Route
@@ -172,13 +193,6 @@ except PermissionError as exc:
     # Surfacing it rather than swallowing it means a future RBAC regression shows
     # up as a visible error instead of silently rendering restricted data.
     st.error(f"**Access denied.** {exc}", icon="🔒")
-
-# Public risk information is national and non-sensitive, so operational roles
-# keep the citizen-facing view available beneath their own panels.
-if role is not Role.PUBLIC:
-    st.divider()
-    with st.expander("Public view (what citizens see)"):
-        public_portal(DEMO_PRINCIPALS[Role.PUBLIC], data, horizon)
 
 st.divider()
 st.caption(

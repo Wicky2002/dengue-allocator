@@ -1,0 +1,27 @@
+# Streamlit configuration for the Dengue Allocator dashboard.
+#
+# The [theme] values mirror app/theme.py's design tokens (SURFACE, PAGE,
+# INK_PRIMARY, CATEGORICAL[0]) so native widgets -- buttons, sliders, tabs,
+# radios, st.metric -- match the hand-styled components instead of showing
+# Streamlit's default accent colour everywhere PAGE_CSS doesn't reach. This is
+# the single highest-impact lever for the app not reading as a generic
+# Streamlit demo: without it, only the custom KPI tiles are on-brand and
+# everything else falls back to Streamlit's own theme.
+
+[theme]
+base = "light"
+primaryColor = "#2a78d6"
+backgroundColor = "#fcfcfb"
+secondaryBackgroundColor = "#f9f9f7"
+textColor = "#0b0b0b"
+font = "sans serif"
+
+[client]
+# Hides the "Deploy" button and trims the hamburger menu to essentials --
+# this is a demo dashboard, not a Streamlit Cloud deployment, so those
+# options are noise. "minimal" keeps rerun/settings, which are still useful.
+toolbarMode = "minimal"
+showErrorDetails = true
+
+[browser]
+gatherUsageStats = false

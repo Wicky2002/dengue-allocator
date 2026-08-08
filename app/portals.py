@@ -15,6 +15,7 @@ from components import (
     choropleth,
     estimate_notice,
     facility_map,
+    history_and_forecast_chart,
     kpi_grid,
     provenance_badge,
     rainfall_vs_cases,
@@ -51,6 +52,150 @@ def _risk_frame(district_risk: pd.DataFrame, horizon: int) -> pd.DataFrame:
 
 
 # ==========================================================================
+# National overview -- identical for every role, shown before role content
+# ==========================================================================
+
+
+def national_overview(data: dict[str, pd.DataFrame], horizon: int) -> None:
+    """Whole-country picture: heat map, forecast, and trends.
+
+    No ``Principal`` argument and no permission check -- deliberately, since
+    this is meant to render exactly the same way no matter who is viewing.
+    That is the direct fix for "data looks restricted to part of the
+    country": every role sees all 25 districts here, before anything
+    role-scoped (a hospital's own facility, an MOH officer's own district)
+    might narrow the view further down the page.
+
+    The ranked bar chart next to the map is not a fallback shown only when
+    the map fails -- it is always rendered alongside it, so "every district,
+    always visible" holds even if a future map regression slips through, and
+    so a viewer who prefers a list to a map isn't stuck.
+    """
+    district_risk = data.get("district_risk")
+    if district_risk is None or district_risk.empty:
+        st.info("No forecast data available yet. Run `make pipeline`.", icon="ℹ️")
+        return
+
+    panel = data.get("panel_recent")
+    forecasts = data.get("forecasts")
+    frame = _risk_frame(district_risk, horizon)
+    assessments = assess_all(district_risk, horizon_weeks=horizon, audience="public")
+    summary = national_summary(assessments)
+
+    st.markdown("## National overview")
+    st.caption(
+        f"All {summary['n_districts']} districts, {horizon} weeks ahead — identical for "
+        "every role, shown before anything role-specific below."
+    )
+
+    kpi_grid(
+        [
+            kpi_html("Districts forecast", str(summary["n_districts"]), "of 25"),
+            kpi_html(
+                "High risk or above",
+                str(summary["n_severe"] + summary["n_high"]),
+                "districts",
+                "critical",
+            ),
+            kpi_html(
+                "Forecast cases",
+                _fmt(summary["total_forecast_cases"]),
+                f"Nationwide, {horizon} weeks ahead",
+            ),
+            kpi_html("Highest risk", summary["worst_district"], summary["worst_level"]),
+        ]
+    )
+
+    map_col, rank_col = st.columns([3, 2])
+    with map_col:
+        st.markdown("**Risk map**")
+        chart = choropleth(
+            frame,
+            value_column="risk_level",
+            categorical=True,
+            tooltip_columns=[
+                ("q0.5", "Forecast cases", ".0f"),
+                ("incidence_per_100k", "Per 100,000", ".1f"),
+            ],
+            legend_title="Risk level",
+        )
+        if chart is None:
+            st.info("Map geometry unavailable — see the ranked list.", icon="🗺️")
+        else:
+            # No use_container_width -- geoshape needs a fixed pixel extent.
+            st.altair_chart(chart)
+
+        cols = st.columns(4)
+        for col, level in zip(cols, RiskLevel, strict=False):
+            col.markdown(risk_pill(level), unsafe_allow_html=True)
+            col.caption(f"Above {int(RISK_THRESHOLDS[level])} per 100,000")
+
+    with rank_col:
+        st.markdown("**Every district, ranked**")
+        st.caption("Shown in full regardless of the map above.")
+        ranked = frame.sort_values("incidence_per_100k", ascending=False)
+        colours = {level.value: level.colour for level in RiskLevel}
+        bars = (
+            alt.Chart(ranked)
+            .mark_bar(cornerRadiusEnd=3)
+            .encode(
+                y=alt.Y("district:N", sort="-x", title=None),
+                x=alt.X("incidence_per_100k:Q", title="Per 100,000"),
+                color=alt.Color(
+                    "risk_level:N",
+                    scale=alt.Scale(domain=list(colours), range=list(colours.values())),
+                    legend=None,
+                ),
+                tooltip=[
+                    alt.Tooltip("district:N", title="District"),
+                    alt.Tooltip("incidence_per_100k:Q", title="Per 100,000", format=".1f"),
+                    alt.Tooltip("risk_level:N", title="Risk"),
+                ],
+            )
+            .properties(height=560)
+        )
+        st.altair_chart(bars, use_container_width=True)
+
+    st.divider()
+    trend_col, rain_col = st.columns(2)
+    with trend_col:
+        st.markdown("**National cases: observed and forecast**")
+        if panel is not None and not panel.empty and forecasts is not None and not forecasts.empty:
+            national_history = panel.groupby("iso_week", observed=True)["cases"].sum().reset_index()
+            national_forecast = (
+                forecasts.groupby("target_week", observed=True)[["q0.5", "q0.1", "q0.9"]]
+                .sum()
+                .reset_index()
+            )
+            st.altair_chart(
+                history_and_forecast_chart(national_history, national_forecast),
+                use_container_width=True,
+            )
+            st.caption(
+                "Solid = observed. Dashed = forecast, summed across districts — a "
+                "coarse aggregate for an at-a-glance view, not a jointly-modelled "
+                "national interval."
+            )
+        else:
+            st.info("Not enough data for a trend chart yet.", icon="ℹ️")
+
+    with rain_col:
+        st.markdown("**Rainfall and dengue cases**")
+        if panel is not None and not panel.empty:
+            national = (
+                panel.groupby("iso_week", observed=True)
+                .agg(cases=("cases", "sum"), rain_mm=("rain_mm", "mean"))
+                .reset_index()
+            )
+            st.altair_chart(rainfall_vs_cases(national, height=280), use_container_width=True)
+            st.caption(
+                "Cases follow rainfall by roughly 6–8 weeks: rain fills containers, "
+                "larvae develop, adult mosquitoes emerge, and only then does "
+                "transmission rise."
+            )
+
+
+# ==========================================================================
 # Public portal
 # ==========================================================================
 
@@ -63,61 +208,14 @@ def public_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: 
     frame = _risk_frame(district_risk, horizon)
 
     assessments = assess_all(district_risk, horizon_weeks=horizon, audience="public")
-    summary = national_summary(assessments)
 
-    st.subheader("Dengue risk across Sri Lanka")
+    st.subheader("Your district")
     st.caption(
-        f"Forecast for the {horizon} weeks ahead. Updated when the pipeline last ran — "
-        "this page is public information and contains no hospital or operational data."
+        "Look up a specific district, or check the National overview above for the "
+        "whole-country picture."
     )
 
-    kpi_grid(
-        [
-            kpi_html(
-                "Districts at high risk",
-                str(summary["n_severe"] + summary["n_high"]),
-                "High or very high",
-                "critical",
-            ),
-            kpi_html("Rising fast", str(summary["n_rising_fast"]), "Growing more than 20%"),
-            kpi_html("Highest risk district", summary["worst_district"], summary["worst_level"]),
-            kpi_html(
-                "Forecast cases",
-                _fmt(summary["total_forecast_cases"]),
-                f"Nationwide, {horizon} weeks ahead",
-            ),
-        ]
-    )
-
-    tab_map, tab_district, tab_trend, tab_learn = st.tabs(
-        ["Risk map", "My district", "Trends", "Protect yourself"]
-    )
-
-    with tab_map:
-        chart = choropleth(
-            frame,
-            value_column="risk_level",
-            categorical=True,
-            tooltip_columns=[
-                ("q0.5", "Forecast cases", ".0f"),
-                ("incidence_per_100k", "Per 100,000", ".1f"),
-            ],
-            legend_title="Risk level",
-        )
-        if chart is None:
-            st.info("Map geometry unavailable. Showing the table instead.")
-            st.dataframe(
-                frame[["district", "risk_level", "q0.5", "incidence_per_100k"]],
-                hide_index=True,
-                use_container_width=True,
-            )
-        else:
-            st.altair_chart(chart, use_container_width=True)
-
-        cols = st.columns(4)
-        for col, level in zip(cols, RiskLevel, strict=False):
-            col.markdown(risk_pill(level), unsafe_allow_html=True)
-            col.caption(f"Above {int(RISK_THRESHOLDS[level])} per 100,000")
+    tab_district, tab_learn = st.tabs(["My district", "Protect yourself"])
 
     with tab_district:
         names = sorted(frame["district"].unique())
@@ -150,22 +248,6 @@ def public_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: 
             if not history.empty:
                 st.markdown("**Recent weekly cases**")
                 st.altair_chart(trend_chart(history), use_container_width=True)
-
-    with tab_trend:
-        if panel is not None and not panel.empty:
-            national = (
-                panel.groupby("iso_week", observed=True)
-                .agg(cases=("cases", "sum"), rain_mm=("rain_mm", "mean"))
-                .reset_index()
-            )
-            st.markdown("**Rainfall and dengue cases**")
-            st.altair_chart(rainfall_vs_cases(national), use_container_width=True)
-            st.caption(
-                "Cases follow rainfall by roughly 6–8 weeks: rain fills containers, "
-                "larvae develop, adult mosquitoes emerge, and only then does "
-                "transmission rise. That lag is why prevention works best *before* "
-                "cases climb."
-            )
 
     with tab_learn:
         c1, c2 = st.columns(2)
@@ -302,6 +384,20 @@ def hospital_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon
                 "capacity_status",
             ]
         ].copy()
+        # Pre-formatted as display strings rather than via st.column_config:
+        # every column_config-bearing dataframe in this app crashed the
+        # frontend outright (a JS TypeError reading 'vertical', reproducible
+        # in a real browser though invisible to any Python-side test) on this
+        # Streamlit version, while plain dataframes never did. Formatting the
+        # numbers ourselves sidesteps that component entirely rather than
+        # chasing the exact trigger under deadline pressure.
+        show["forecast_cases"] = show["forecast_cases"].map("{:.0f}".format)
+        show["admissions"] = show["admissions"].map("{:.0f}".format)
+        show["severe_cases"] = show["severe_cases"].map("{:.1f}".format)
+        show["icu_patients"] = show["icu_patients"].map("{:.1f}".format)
+        show["paediatric_admissions"] = show["paediatric_admissions"].map("{:.0f}".format)
+        show["peak_occupied_beds"] = show["peak_occupied_beds"].map("{:.0f}".format)
+        show["occupancy_pct"] = show["occupancy_pct"].map("{:.1f}%".format)
         st.dataframe(
             show.rename(
                 columns={
@@ -318,17 +414,6 @@ def hospital_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon
             ),
             hide_index=True,
             use_container_width=True,
-            column_config={
-                "Forecast cases": st.column_config.NumberColumn(format="%.0f"),
-                "Admissions": st.column_config.NumberColumn(format="%.0f"),
-                "Severe": st.column_config.NumberColumn(format="%.1f"),
-                "ICU": st.column_config.NumberColumn(format="%.1f"),
-                "Paediatric": st.column_config.NumberColumn(format="%.0f"),
-                "Peak beds": st.column_config.NumberColumn(format="%.0f"),
-                "Occupancy %": st.column_config.ProgressColumn(
-                    format="%.1f%%", min_value=0, max_value=100
-                ),
-            },
         )
         estimate_notice(
             "55% hospitalisation rate, 6% severe, 2% ICU, 4-day mean stay. "
@@ -337,7 +422,12 @@ def hospital_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon
         )
 
     with tab_supply:
-        supply = readiness[["district", "platelet_units", "iv_fluid_litres", "diagnostic_tests"]]
+        supply = readiness[
+            ["district", "platelet_units", "iv_fluid_litres", "diagnostic_tests"]
+        ].copy()
+        supply["platelet_units"] = supply["platelet_units"].map("{:.0f}".format)
+        supply["iv_fluid_litres"] = supply["iv_fluid_litres"].map("{:.0f}".format)
+        supply["diagnostic_tests"] = supply["diagnostic_tests"].map("{:.0f}".format)
         st.dataframe(
             supply.rename(
                 columns={
@@ -349,11 +439,6 @@ def hospital_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon
             ),
             hide_index=True,
             use_container_width=True,
-            column_config={
-                "Platelet units": st.column_config.NumberColumn(format="%.0f"),
-                "IV fluid (L)": st.column_config.NumberColumn(format="%.0f"),
-                "Diagnostic kits": st.column_config.NumberColumn(format="%.0f"),
-            },
         )
         st.info(
             unavailable_reason("Current stock on hand"),
@@ -372,12 +457,13 @@ def hospital_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon
             legend_title="Projected occupancy %",
         )
         if chart is not None:
-            st.altair_chart(chart, use_container_width=True)
+            # No use_container_width -- geoshape needs a fixed pixel extent.
+            st.altair_chart(chart)
         if facilities is not None and not facilities.empty:
             st.markdown(f"**{len(facilities):,} health facilities** (OpenStreetMap, ODbL)")
             fmap = facility_map(facilities)
             if fmap is not None:
-                st.altair_chart(fmap, use_container_width=True)
+                st.altair_chart(fmap)
             st.caption(
                 "Locations are real. Bed counts are **not** in OpenStreetMap for Sri "
                 f"Lanka ({int(facilities['beds_tagged'].notna().sum())} of "
@@ -492,7 +578,8 @@ def moh_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: int
             legend_title="Risk level",
         )
         if chart is not None:
-            st.altair_chart(chart, use_container_width=True)
+            # No use_container_width -- geoshape needs a fixed pixel extent.
+            st.altair_chart(chart)
 
         for a in assessments[:3]:
             with st.container(border=True):
@@ -685,8 +772,13 @@ def moh_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: int
                     use_container_width=True,
                 )
             with c2:
+                # See the hospital readiness table for why this formats values
+                # to strings rather than using st.column_config.
+                table = split[["category", "share_pct", "amount_lkr", "evidence"]].copy()
+                table["share_pct"] = table["share_pct"].map("{:.1f}%".format)
+                table["amount_lkr"] = table["amount_lkr"].map("{:.0f}".format)
                 st.dataframe(
-                    split[["category", "share_pct", "amount_lkr", "evidence"]].rename(
+                    table.rename(
                         columns={
                             "category": "Category",
                             "share_pct": "Share %",
@@ -696,10 +788,6 @@ def moh_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: int
                     ),
                     hide_index=True,
                     use_container_width=True,
-                    column_config={
-                        "Share %": st.column_config.NumberColumn(format="%.1f%%"),
-                        "Amount (LKR)": st.column_config.NumberColumn(format="%.0f"),
-                    },
                 )
             st.warning(
                 "**Only the vector-control curve is anchored to a model.** The other "
