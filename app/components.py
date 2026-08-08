@@ -49,6 +49,62 @@ def load_geometry() -> dict[str, Any] | None:
         return None
 
 
+@st.cache_data(show_spinner=False)
+def _geometry_data_uri() -> str | None:
+    """The district GeoJSON as a base64 ``data:`` URI, or None if unavailable.
+
+    Why a data URI instead of passing the parsed geometry as inline
+    ``values``: Streamlit's chart component tries to Arrow-serialise inline
+    list/dict data for transport, and Arrow's columnar model has no good
+    representation for GeoJSON's deeply nested, variable-depth coordinate
+    arrays (``Polygon`` vs ``MultiPolygon`` alone differ in nesting depth).
+    In testing, that round-trip silently produced geometries with no usable
+    coordinates -- the chart *compiled* and the legend rendered, but nothing
+    was ever drawn, with no error anywhere. The exact same spec renders
+    correctly through a bare Vega-Embed page on the identical Vega-Lite
+    version, which is what isolated the bug to Streamlit's data pipeline
+    rather than the spec or the map geometry itself.
+
+    A ``data:`` URI sidesteps this entirely: it is a single opaque string in
+    the spec, so Streamlit's Arrow conversion never touches it, and the
+    browser's own ``fetch()`` (which Vega-Lite uses for any ``url`` data
+    source) decodes and parses it directly.
+    """
+    import base64
+    import json
+
+    geometry = load_geometry()
+    if geometry is None:
+        return None
+    payload = json.dumps(geometry).encode("utf-8")
+    encoded = base64.b64encode(payload).decode("ascii")
+    return f"data:application/json;base64,{encoded}"
+
+
+def _geometry_source() -> alt.Data | None:
+    """Altair data source for the district geometry, routed through the fix
+    described in :func:`_geometry_data_uri`."""
+    uri = _geometry_data_uri()
+    if uri is None:
+        return None
+    return alt.Data(url=uri, format=alt.DataFormat(type="json", property="features"))
+
+
+def _safe_field(name: str) -> str:
+    """Vega-Lite-safe alias for a column name.
+
+    Vega-Lite treats ``.`` in a field name as nested-property access unless
+    escaped, so a column literally called ``"q0.5"`` is read as "property `5`
+    inside object `q0`" -- which doesn't exist, and can silently break an
+    encoding, a tooltip, or an entire ``transform_lookup`` join depending on
+    where it lands in the spec. Several of this project's own columns
+    (``q0.1``, ``q0.5``, ``q0.9``) are named exactly this way, so every chart
+    built from a DataFrame column must route the field name through this
+    function rather than using the raw column name directly.
+    """
+    return name.replace(".", "_")
+
+
 def choropleth(
     values: pd.DataFrame,
     *,
@@ -59,6 +115,7 @@ def choropleth(
     domain_order: list[str] | None = None,
     tooltip_columns: list[tuple[str, str, str]] | None = None,
     height: int = 520,
+    width: int = 460,
     legend_title: str = "",
 ) -> alt.Chart | None:
     """District choropleth of Sri Lanka.
@@ -76,6 +133,13 @@ def choropleth(
         ``category -> hex`` when ``categorical``.
     tooltip_columns:
         ``(column, title, format)`` triples.
+    width:
+        A concrete pixel width. Not load-bearing for the rendering bug this
+        function works around (see :func:`_geometry_data_uri`) -- that turned
+        out to be Streamlit's data pipeline, not sizing -- but geoshape's
+        ``.project()`` still reads more predictably from a fixed extent than
+        a container-relative one, so this chart is still meant to be called
+        with ``st.altair_chart(chart)``, not ``use_container_width=True``.
 
     Returns
     -------
@@ -83,37 +147,54 @@ def choropleth(
         None when the geometry asset is unavailable, so the caller can fall back
         to a table rather than rendering an empty pane.
     """
-    geometry = load_geometry()
-    if geometry is None:
+    geo_source = _geometry_source()
+    if geo_source is None:
         return None
 
-    lookup_fields = [value_column] + [c for c, _, _ in (tooltip_columns or [])]
-    lookup_fields = list(dict.fromkeys(lookup_fields))  # de-dupe, keep order
+    # Route every field name through _safe_field before it reaches Altair.
+    # This is the one place that has to get it right -- see _safe_field's
+    # docstring for why a raw "q0.5" silently breaks the lookup/encoding.
+    tooltip_columns = tooltip_columns or [(value_column, value_column, ".1f")]
+    safe_value_column = _safe_field(value_column)
+    rename_map = {value_column: safe_value_column}
+    rename_map.update({c: _safe_field(c) for c, _, _ in tooltip_columns})
+
+    values = values.rename(columns=rename_map)
+    lookup_fields = list(dict.fromkeys(rename_map.values()))
 
     if categorical:
         order = domain_order or RISK_ORDER
-        present = [v for v in order if v in set(values[value_column].dropna())]
+        present = [v for v in order if v in set(values[safe_value_column].dropna())]
         colours = colour_map or RISK_COLOURS
         colour = alt.Color(
-            f"{value_column}:N",
+            f"{safe_value_column}:N",
             scale=alt.Scale(domain=present, range=[colours[v] for v in present]),
             legend=alt.Legend(title=legend_title or None, orient="top", direction="horizontal"),
         )
     else:
+        # scheme and range are mutually exclusive ways to define a Scale;
+        # `scheme=None` is not "no scheme", it fails schema validation
+        # outright ("'None' is an invalid value for `scheme`"), which broke
+        # every numeric (non-categorical) choropleth -- e.g. hospital
+        # occupancy -- the same way the dotted-field bug broke categorical
+        # ones. Omit the kwarg entirely rather than passing None.
         colour = alt.Color(
-            f"{value_column}:Q",
-            scale=alt.Scale(scheme=None, range=list(SEQUENTIAL_BLUE)),
+            f"{safe_value_column}:Q",
+            scale=alt.Scale(range=list(SEQUENTIAL_BLUE)),
             legend=alt.Legend(title=legend_title or None, orient="right", gradientLength=220),
         )
 
     tooltips = [alt.Tooltip("properties.name:N", title="District")]
-    for column, label, fmt in tooltip_columns or [(value_column, value_column, ".1f")]:
+    for column, label, fmt in tooltip_columns:
+        safe_column = _safe_field(column)
         tooltips.append(
-            alt.Tooltip(f"{column}:Q" if fmt else f"{column}:N", title=label, format=fmt)
+            alt.Tooltip(f"{safe_column}:Q" if fmt else f"{safe_column}:N", title=label, format=fmt)
         )
 
+    # geo_source is a data: URI (see _geometry_data_uri), not inline `values`
+    # -- required to avoid Streamlit's Arrow serialisation of the geometry.
     chart = (
-        alt.Chart(alt.Data(values=geometry, format=alt.DataFormat(property="features")))
+        alt.Chart(geo_source)
         .mark_geoshape(stroke="#fcfcfb", strokeWidth=0.8)
         .transform_lookup(
             lookup="properties.district_id",
@@ -121,7 +202,7 @@ def choropleth(
         )
         .encode(color=colour, tooltip=tooltips)
         .project(type="mercator")
-        .properties(height=height, title=title or "")
+        .properties(width=width, height=height, title=title or "")
     )
     return chart
 
@@ -221,6 +302,98 @@ def rainfall_vs_cases(history: pd.DataFrame, height: int = 300) -> alt.Chart:
     return alt.vconcat(cases, rain, spacing=6).resolve_scale(x="shared")
 
 
+def history_and_forecast_chart(
+    history: pd.DataFrame,
+    forecast: pd.DataFrame,
+    *,
+    height: int = 320,
+) -> alt.Chart:
+    """One continuous timeline: solid observed history flowing into a dashed
+    forecast band.
+
+    Parameters
+    ----------
+    history:
+        Columns ``iso_week`` (datetime), ``cases``.
+    forecast:
+        Columns ``target_week`` (datetime), ``q0.5``, ``q0.1``, ``q0.9`` --
+        already aggregated to whatever level this is called at (e.g. summed
+        across districts for a national view). Summing per-district medians
+        and per-district interval bounds is a coarse aggregate -- district
+        forecast errors are not perfectly correlated, so the summed band is
+        somewhat wider than a jointly-modelled national interval would be --
+        but it is the right order of magnitude for an at-a-glance overview
+        chart, not a number anyone should plan clinical capacity against.
+
+    The last observed point is duplicated as the first forecast point (with
+    zero-width interval) so the band starts exactly where the solid line
+    ends, rather than leaving a visible gap.
+    """
+    hist = history[["iso_week", "cases"]].rename(columns={"iso_week": "week"}).copy()
+    hist["kind"] = "observed"
+
+    fc = forecast.rename(
+        columns={"target_week": "week", "q0.5": "median", "q0.1": "lower", "q0.9": "upper"}
+    )[["week", "median", "lower", "upper"]].copy()
+    fc["kind"] = "forecast"
+
+    if not hist.empty:
+        bridge = pd.DataFrame(
+            {
+                "week": [hist["week"].iloc[-1]],
+                "median": [hist["cases"].iloc[-1]],
+                "lower": [hist["cases"].iloc[-1]],
+                "upper": [hist["cases"].iloc[-1]],
+                "kind": ["forecast"],
+            }
+        )
+        fc = pd.concat([bridge, fc], ignore_index=True)
+
+    band = (
+        alt.Chart(fc)
+        .mark_area(color=CATEGORICAL[0], opacity=0.18, line=False)
+        .encode(
+            x=alt.X("week:T", title=None),
+            y=alt.Y("lower:Q", title="Cases"),
+            y2="upper:Q",
+        )
+        .properties(height=height)
+    )
+    observed_line = (
+        alt.Chart(hist)
+        .mark_line(color=CATEGORICAL[0], strokeWidth=2)
+        .encode(
+            x="week:T",
+            y=alt.Y("cases:Q", title="Cases"),
+            tooltip=[
+                alt.Tooltip("week:T", title="Week"),
+                alt.Tooltip("cases:Q", title="Observed cases", format=","),
+            ],
+        )
+    )
+    forecast_line = (
+        alt.Chart(fc)
+        .mark_line(color=CATEGORICAL[0], strokeWidth=2, strokeDash=[5, 4])
+        .encode(
+            x="week:T",
+            y=alt.Y("median:Q", title="Cases"),
+            tooltip=[
+                alt.Tooltip("week:T", title="Target week"),
+                alt.Tooltip("median:Q", title="Forecast (median)", format=",.0f"),
+                alt.Tooltip("lower:Q", title="P10", format=",.0f"),
+                alt.Tooltip("upper:Q", title="P90", format=",.0f"),
+            ],
+        )
+    )
+    forecast_points = (
+        alt.Chart(fc[fc["kind"] == "forecast"])
+        .mark_point(color=CATEGORICAL[0], size=55, filled=True)
+        .encode(x="week:T", y="median:Q")
+    )
+
+    return (band + observed_line + forecast_line + forecast_points).properties(height=height)
+
+
 def recommendation_list(recommendations, limit: int = 6) -> None:
     """Render recommendations with their rationale.
 
@@ -238,17 +411,22 @@ def recommendation_list(recommendations, limit: int = 6) -> None:
         )
 
 
-def facility_map(facilities: pd.DataFrame, height: int = 520) -> alt.Chart | None:
-    """Health facilities over the district outline."""
-    geometry = load_geometry()
-    if geometry is None or facilities.empty:
+def facility_map(facilities: pd.DataFrame, height: int = 520, width: int = 460) -> alt.Chart | None:
+    """Health facilities over the district outline.
+
+    Like :func:`choropleth`, ``width`` must be a concrete number -- render with
+    ``st.altair_chart(chart)``, not ``use_container_width=True``. See
+    :func:`choropleth`'s docstring for why.
+    """
+    geo_source = _geometry_source()
+    if geo_source is None or facilities.empty:
         return None
 
     outline = (
-        alt.Chart(alt.Data(values=geometry, format=alt.DataFormat(property="features")))
+        alt.Chart(geo_source)
         .mark_geoshape(fill="#f0efec", stroke="#c3c2b7", strokeWidth=0.7)
         .project(type="mercator")
-        .properties(height=height)
+        .properties(width=width, height=height)
     )
 
     points = (

@@ -23,7 +23,22 @@ dependencies = [
     "pdfplumber==0.11.0",
     "networkx==3.3",
     "pulp==2.8.0",
-    "streamlit==1.35.0",
+    # streamlit 1.35.0 shipped a frontend build with two rendering bugs this
+    # project hit directly: (1) inline non-tabular data (this app's district
+    # GeoJSON) silently lost its geometry through Streamlit's Arrow
+    # serialisation -- the chart compiled, the legend drew, nothing else did,
+    # no error anywhere; (2) any `st.dataframe(..., column_config=...)` threw
+    # an uncaught frontend TypeError that blanked the whole page. Both are
+    # gone as of 1.61.1. Pinned explicitly rather than left open specifically
+    # because "just take whatever's newest" is exactly how the app ended up
+    # on a broken frontend/spec-version pairing the first time.
+    "streamlit==1.61.1",
+    # Never pin loosely again: altair was previously an UNPINNED transitive
+    # dependency of streamlit, which let pip resolve it to whatever the
+    # newest release happened to be (5.5.0) independent of what Streamlit's
+    # bundled frontend actually understood -- the other half of bug (1)
+    # above. Pinned to the version verified working against streamlit 1.61.1.
+    "altair==5.3.0",
     "python-dotenv==1.0.1",
     "tabulate==0.9.0",
 ]
@@ -43,6 +58,13 @@ dev = [
     "pytest==8.2.1",
     "pytest-cov==5.0.0",
     "ruff==0.4.7",
+    # Renders a Vega-Lite spec to PNG with no browser/Node/Chromium required
+    # (self-contained Rust binary wheel). This exists specifically so chart
+    # code can be regression-tested end to end -- a spec that *builds*
+    # without a Python exception can still fail to *render* (e.g. a raw "."
+    # in a field name is valid Python but invalid Vega-Lite), and that gap is
+    # exactly how the choropleth field-name bug shipped undetected.
+    "vl-convert-python==1.6.0",
 ]
 
 [project.urls]

@@ -81,6 +81,43 @@ def _round_coords(geometry: Any, precision: int) -> Any:
     return geometry
 
 
+def _round_and_validate_geometry(geometry: Any, precision: int) -> dict[str, Any]:
+    """Round coordinates, then re-validate and re-repair topology.
+
+    ``geometry.simplify().buffer(0)`` upstream already repairs
+    self-intersections at full float precision, but rounding happens *after*
+    that -- and truncating coordinates can itself reintroduce the exact
+    problem ``buffer(0)`` fixed: two vertices that were distinct at full
+    precision can collapse onto the same rounded point, or a rounded edge can
+    cross another. Repairing again after rounding is what actually guarantees
+    the *shipped* asset is valid, not just the pre-rounding intermediate. If a
+    feature is still invalid after a second repair attempt (rare -- a very
+    fine coastline detail collapsing under 4 dp rounding), this falls back to
+    the unrounded coordinates for that one feature rather than shipping
+    invalid geometry, trading a little file size for correctness.
+    """
+    from shapely.geometry import mapping, shape
+
+    rounded = _round_coords(mapping(geometry), precision)
+    candidate = shape(rounded)
+
+    if not candidate.is_valid:
+        repaired = candidate.buffer(0)
+        if repaired.is_valid and not repaired.is_empty:
+            candidate = repaired
+        else:
+            from shapely.validation import explain_validity
+
+            log.warning(
+                "boundaries: rounded geometry still invalid after repair (%s); "
+                "keeping full-precision coordinates for this feature",
+                explain_validity(candidate),
+            )
+            candidate = geometry
+
+    return mapping(candidate)
+
+
 def _district_name_from_properties(properties: dict[str, Any]) -> str | None:
     """Pull the district name out of the COD property bag.
 
@@ -117,7 +154,7 @@ def build_simplified_geojson(
     pathlib.Path
         Path to the written asset.
     """
-    from shapely.geometry import mapping, shape
+    from shapely.geometry import shape
 
     config.ensure_dirs()
     ASSETS_DIR.mkdir(parents=True, exist_ok=True)
@@ -172,7 +209,7 @@ def build_simplified_geojson(
                     "pcode": properties.get("adm2_pcode"),
                     "province": properties.get("adm1_name"),
                 },
-                "geometry": _round_coords(mapping(simplified), COORD_PRECISION),
+                "geometry": _round_and_validate_geometry(simplified, COORD_PRECISION),
             }
         )
 
@@ -186,12 +223,10 @@ def build_simplified_geojson(
     for feature in features:
         key = feature["properties"]["district_id"]
         if key in merged:
-            from shapely.geometry import mapping as _mapping
-            from shapely.geometry import shape as _shape
             from shapely.ops import unary_union
 
-            combined = unary_union([_shape(merged[key]["geometry"]), _shape(feature["geometry"])])
-            merged[key]["geometry"] = _round_coords(_mapping(combined), COORD_PRECISION)
+            combined = unary_union([shape(merged[key]["geometry"]), shape(feature["geometry"])])
+            merged[key]["geometry"] = _round_and_validate_geometry(combined, COORD_PRECISION)
         else:
             merged[key] = feature
 
@@ -222,7 +257,66 @@ def build_simplified_geojson(
     if missing:
         log.error("boundaries: MISSING districts in the map: %s", sorted(missing))
 
+    invalid = _invalid_feature_ids(collection)
+    if invalid:
+        log.error("boundaries: %d feature(s) failed final validation: %s", len(invalid), invalid)
+    else:
+        log.info("boundaries: all %d features validated OK", len(merged))
+
     return DISTRICTS_GEOJSON
+
+
+def _invalid_feature_ids(collection: dict[str, Any]) -> list[str]:
+    """District ids whose geometry in ``collection`` is invalid or degenerate."""
+    from shapely.geometry import shape
+
+    bad: list[str] = []
+    for feature in collection.get("features", []):
+        district_id = feature.get("properties", {}).get("district_id", "?")
+        try:
+            geom = shape(feature["geometry"])
+        except Exception:  # - any parse failure counts as invalid
+            bad.append(district_id)
+            continue
+        if not geom.is_valid or geom.is_empty or geom.area <= 0:
+            bad.append(district_id)
+    return bad
+
+
+def validate_geojson_asset(path: Path | None = None) -> dict[str, Any]:
+    """Validate the shipped district GeoJSON asset. Raises on any problem.
+
+    Checked, in order: the file parses as JSON; it has exactly the 25
+    registry districts, no more, no fewer; every feature's geometry is valid
+    (no self-intersections), non-empty, and has plausible non-zero area.
+    Exercised by ``tests/test_boundaries.py`` so a future re-generation of the
+    asset can't silently ship a broken district.
+
+    Returns
+    -------
+    dict
+        Small summary (``n_features``, ``total_area_deg2``) for logging/tests.
+    """
+    path = path or DISTRICTS_GEOJSON
+    collection = json.loads(path.read_text(encoding="utf-8"))
+
+    feature_ids = {f["properties"]["district_id"] for f in collection["features"]}
+    expected = set(config.DISTRICT_IDS)
+    if feature_ids != expected:
+        raise ValueError(
+            f"Geometry asset district set mismatch. "
+            f"Missing: {sorted(expected - feature_ids)}. "
+            f"Unexpected: {sorted(feature_ids - expected)}."
+        )
+
+    invalid = _invalid_feature_ids(collection)
+    if invalid:
+        raise ValueError(f"Invalid/degenerate geometry for districts: {invalid}")
+
+    from shapely.geometry import shape
+
+    total_area = sum(shape(f["geometry"]).area for f in collection["features"])
+    return {"n_features": len(collection["features"]), "total_area_deg2": total_area}
 
 
 def load_district_geojson() -> dict[str, Any]:
