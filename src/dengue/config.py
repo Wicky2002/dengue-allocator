@@ -147,6 +147,12 @@ RANDOM_SEED: Final[int] = 20260809
 TRAIN_END_DEFAULT: Final[str] = "2023-12-31"
 VAL_END_DEFAULT: Final[str] = "2024-12-31"
 
+#: How far back `wer_pdf.download_recent` backfills by default. ~4 years gives
+#: a full year of pure training history before TRAIN_END_DEFAULT, so a
+#: WER-sourced panel lines up with the fold boundaries above instead of
+#: starting mid-fold.
+WER_BACKFILL_START: Final[str] = "2022-01-01"
+
 
 # --------------------------------------------------------------------------
 # District registry
@@ -340,6 +346,9 @@ _NAME_VARIANTS: Final[dict[str, str]] = {
     "ampara kalmunai": "ampara",
     "amparai": "ampara",
     "ampare": "ampara",
+    # WER Table 1's narrow rotated-header column truncates some names --
+    # confirmed on real 2022/2023 issues (2026's wider columns don't).
+    "kalmune": "ampara",
     # Colombo Municipal Council folds into Colombo.
     "cmc": "colombo",
     "colombo mc": "colombo",
@@ -375,6 +384,7 @@ _NAME_VARIANTS: Final[dict[str, str]] = {
     "polonaruwa": "polonnaruwa",
     "anuradhapure": "anuradhapura",
     "anuradapura": "anuradhapura",
+    "anuradhapur": "anuradhapura",
     "kegalla": "kegalle",
     "kegale": "kegalle",
     "kagalle": "kegalle",

@@ -312,6 +312,40 @@ def categorical_columns(frame: pd.DataFrame) -> list[str]:
 # --------------------------------------------------------------------------
 
 
+def _load_cases(*, refresh: bool) -> pd.DataFrame:
+    """Load the best available real case source.
+
+    Tries the WER backfill first -- current, all-25-district, real notified
+    case counts (see :mod:`dengue.ingest.wer_pdf`) -- and falls back to
+    colmozzie (Colombo only, 2008-2014) if that fails for any reason. Both
+    are real data; WER is simply the richer source when it's reachable.
+    """
+    from dengue.ingest import colmozzie, wer_pdf
+
+    try:
+        since = pd.Period(config.WER_BACKFILL_START, freq=config.WEEK_FREQ)
+        paths = wer_pdf.download_recent(since=since, refresh=refresh)
+        cases = wer_pdf.load(paths, strict=False)
+        # WER carries neither population nor high_risk_flag (unlike
+        # colmozzie, which sets both -- see colmozzie.load()). Population
+        # comes from the same district registry colmozzie itself uses;
+        # high_risk_flag stays null for the same reason colmozzie's does:
+        # this source doesn't carry an NDCU designation either.
+        cases = cases.copy()
+        cases["population"] = cases["district_id"].map(
+            lambda d: config.DISTRICT_BY_ID[d].population
+        )
+        cases["high_risk_flag"] = pd.NA
+        log_frame(log, cases, "panel:cases(wer)")
+        return cases
+    except IngestError as exc:
+        log.warning("panel: WER backfill failed (%s); falling back to colmozzie", exc)
+
+    cases = colmozzie.load(refresh=refresh)
+    log_frame(log, cases, "panel:cases(colmozzie)")
+    return cases
+
+
 def assemble_panel(*, use_synthetic: bool = False, refresh: bool = False) -> pd.DataFrame:
     """Assemble ``data/processed/panel.parquet`` from the real sources.
 
@@ -337,10 +371,9 @@ def assemble_panel(*, use_synthetic: bool = False, refresh: bool = False) -> pd.
         return make_synthetic_panel()
 
     try:
-        from dengue.ingest import colmozzie, openmeteo
+        from dengue.ingest import openmeteo
 
-        cases = colmozzie.load(refresh=refresh)
-        log_frame(log, cases, "panel:cases(colmozzie)")
+        cases = _load_cases(refresh=refresh)
 
         districts = sorted(cases["district_id"].unique())
         start = cases["iso_week"].min().start_time.strftime("%Y-%m-%d")
@@ -352,7 +385,8 @@ def assemble_panel(*, use_synthetic: bool = False, refresh: bool = False) -> pd.
             how="left",
             suffixes=("", "_om"),
         )
-        # Prefer Open-Meteo's reanalysis where colmozzie's station data is null.
+        # Prefer Open-Meteo's reanalysis where the case source's own weather
+        # columns (colmozzie carries station data; WER carries none) are null.
         for column in ("rain_mm", "tmax", "tmin", "rh"):
             om_column = f"{column}_om"
             if om_column in merged.columns:

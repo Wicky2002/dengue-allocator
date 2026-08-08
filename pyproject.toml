@@ -21,6 +21,11 @@ dependencies = [
     "statsmodels==0.14.2",
     "httpx==0.27.0",
     "pdfplumber==0.11.0",
+    # Parses the WER report index (a live, javascript-free HTML page) to
+    # discover recent issue PDFs automatically -- see ingest/wer_pdf.py's
+    # discover_reports(). Pure-Python against stdlib's html.parser backend,
+    # no C/GDAL-style install risk, unlike geopandas below.
+    "beautifulsoup4==4.12.3",
     "networkx==3.3",
     "pulp==2.8.0",
     # streamlit 1.35.0 shipped a frontend build with two rendering bugs this
