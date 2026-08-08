@@ -526,15 +526,33 @@ def build_default_models() -> dict[str, ModelLike]:
 
     Factories rather than instances, so every backtest origin gets a genuinely
     fresh model with no state carried across folds.
+
+    If ``make tune`` has produced tuned LightGBM hyperparameters
+    (:data:`dengue.config.TUNED_PARAMS_PATH`), a second entry
+    ``"lgbm_quantile_tuned"`` is added, registering the *same*
+    :class:`~dengue.models.lgbm_quantile.LGBMQuantile` class with those params
+    baked in via a closure. :func:`compare_models` labels predictions by this
+    dict key rather than the model instance's own name, so that alone is
+    enough to get tuned-vs-default as two distinct rows in the comparison
+    table with no changes anywhere else. Absent the file, this is a no-op --
+    identical to every run before tuning existed.
     """
     from dengue.models.baseline import SarimaBaseline, SeasonalNaive
     from dengue.models.lgbm_quantile import LGBMQuantile
+    from dengue.tuning.runner import load_tuned_params
 
-    return {
+    roster: dict[str, ModelLike] = {
         "seasonal_naive": SeasonalNaive,
         "sarima": SarimaBaseline,
         "lgbm_quantile": LGBMQuantile,
     }
+
+    tuned = load_tuned_params("lgbm_quantile")
+    if tuned:
+        tuned_params = tuned["params"]
+        roster["lgbm_quantile_tuned"] = lambda: LGBMQuantile(params=tuned_params)
+
+    return roster
 
 
 def write_app_artifacts(

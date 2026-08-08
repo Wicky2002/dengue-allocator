@@ -28,7 +28,7 @@ PIPELINE_WEEKS ?= 320
 
 .DEFAULT_GOAL := help
 .PHONY: help setup setup-full data panel panel-synthetic baseline baseline-real \
-        pipeline pipeline-real all test test-all lint format app clean clean-data check
+        pipeline pipeline-real all tune test test-all lint format app clean clean-data check
 
 help:  ## Show this help
 	@echo "dengue-allocator targets:"
@@ -98,12 +98,15 @@ pipeline-real:  ## Same, but against data/processed/panel.parquet
 
 all: baseline pipeline  ## Backtest + full pipeline, everything the app needs
 
+tune:  ## GA hyperparameter + ensemble-weight search, offline (~30 min)
+	$(PY) -m dengue.tuning.runner --synthetic --n-weeks $(N_WEEKS)
+
 # --------------------------------------------------------------------------
 # Quality
 # --------------------------------------------------------------------------
 
-test:  ## Run the test suite (no network)
-	$(PYTEST) -m "not network"
+test:  ## Run the test suite (no network, no slow GA end-to-end test)
+	$(PYTEST) -m "not network and not slow"
 
 test-all:  ## Run every test, including network-dependent ones
 	$(PYTEST)

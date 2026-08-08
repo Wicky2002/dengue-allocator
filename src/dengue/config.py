@@ -50,6 +50,12 @@ ARTIFACTS_DIR: Final[Path] = REPO_ROOT / "artifacts"
 
 PANEL_PATH: Final[Path] = PROCESSED_DIR / "panel.parquet"
 
+#: Winning hyperparameters from `make tune` (dengue.tuning.runner). A small
+#: derived config file the pipeline reads, not something the dashboard
+#: renders -- so it lives beside PANEL_PATH in data/processed/, not in
+#: artifacts/, which is documented as app-facing-only.
+TUNED_PARAMS_PATH: Final[Path] = PROCESSED_DIR / "tuned_hyperparams.json"
+
 RAW_COLMOZZIE: Final[Path] = RAW_DIR / "colmozzie"
 RAW_OPENMETEO: Final[Path] = RAW_DIR / "openmeteo"
 RAW_RELIEFWEB: Final[Path] = RAW_DIR / "reliefweb"

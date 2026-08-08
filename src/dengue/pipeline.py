@@ -61,9 +61,15 @@ def run_stage1(panel: pd.DataFrame, *, horizons: tuple[int, ...] = config.HORIZO
     """
     from dengue.models.baseline import SeasonalNaive
     from dengue.models.lgbm_quantile import LGBMQuantile
+    from dengue.tuning.runner import load_tuned_params
+
+    tuned = load_tuned_params("lgbm_quantile")
+    params = tuned["params"] if tuned else None
+    if tuned:
+        log.info("pipeline: using GA-tuned LGBM hyperparameters (run `make tune` to refresh)")
 
     try:
-        model = LGBMQuantile(horizons=horizons).fit(panel)
+        model = LGBMQuantile(horizons=horizons, params=params).fit(panel)
     except Exception as exc:  # - fall back rather than lose the stage
         log.error("pipeline: LGBMQuantile failed (%s); falling back to SeasonalNaive", exc)
         model = SeasonalNaive().fit(panel)

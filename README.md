@@ -179,7 +179,8 @@ make pipeline-real   # all 3 stages against the real panel
 | `make baseline` | **Offline** backtest of all Stage 1 models, prints comparison table |
 | `make pipeline` | **Offline** run of all 3 stages, writes dashboard artifacts |
 | `make all` | `baseline` + `pipeline` |
-| `make test` | Run the test suite (no network) |
+| `make tune` | GA hyperparameter + ensemble-weight search, offline (~20 min) |
+| `make test` | Run the test suite (no network, no slow GA end-to-end test) |
 | `make lint` | ruff check + format check |
 | `make app` | Launch the Streamlit dashboard |
 
@@ -199,8 +200,11 @@ python -m dengue.eval.backtest --synthetic --n-weeks 520 --stride 4
 # make panel
 python -m dengue.features.build_panel --features
 
+# make tune
+python -m dengue.tuning.runner --synthetic --n-weeks 520
+
 # make test / lint
-python -m pytest -m "not network"
+python -m pytest -m "not network and not slow"
 python -m ruff check src tests app && python -m ruff format --check src tests app
 
 # make app
@@ -382,6 +386,55 @@ stride 8. Reproduce with `make baseline`.
   became a problem. A perfectly accurate forecast delivered the same week has zero
   operational value.
 
+### GA hyperparameter tuning
+
+`make tune` runs a hand-rolled genetic algorithm (`src/dengue/tuning/`) over LightGBM's
+hyperparameters — tournament selection, uniform crossover, kind-specific mutation
+(Gaussian / log-space Gaussian / integer step), linear mutation-rate annealing, elitism,
+early stopping on a fitness plateau, and a hard wall-clock cap. Fitness is evaluated only
+against a short tail slice of the `val` fold, through the same unmodified
+`rolling_origin` / `score_predictions` harness used everywhere else — `test` is touched
+exactly once, by a confirmation run *after* the search has already picked a winner, so
+the numbers below are not gamed against the fold they're reported on. A second, much
+cheaper genome searches ensemble-blend weights across the three base models.
+
+> ⚠️ Also run against the **synthetic** panel — see the caveat above.
+
+<!-- TUNING_TABLE_START -->
+On this run (population 8, generations 5 — converged via early stopping after 2
+generations, ~3.5 min — plus a confirmation backtest on the full 25-district panel,
+~17 min total): reproduce with `make tune` then `make baseline`.
+
+**Fold: `test`**, default vs. GA-tuned LightGBM:
+
+| model | h | `pinball_mean` ↓ | `coverage_80` →0.80 | `interval_width` | `high_risk_recall` ↑ |
+|:---|--:|--:|--:|--:|--:|
+| lgbm_quantile (default) | 2 | **2.014** | 0.668 | **15.70** | 0.393 |
+| lgbm_quantile_tuned     | 2 | 2.043 | **0.692** | 15.83 | **0.417** |
+| lgbm_quantile (default) | 3 | **2.355** | 0.692 | **16.37** | **0.314** |
+| lgbm_quantile_tuned     | 3 | 2.376 | **0.720** | 16.80 | 0.304 |
+| lgbm_quantile (default) | 4 | 2.035 | 0.684 | **16.30** | **0.412** |
+| lgbm_quantile_tuned     | 4 | **2.014** | 0.686 | 16.67 | 0.392 |
+
+**What this shows:** the tuned genome does **not** clearly win on `pinball_mean` — it's
+within noise of the default at h=2/h=3 and ties it at h=4. What it *does* do is move
+`coverage_80` consistently toward the 0.80 nominal target (0.668→0.692, 0.692→0.720,
+0.684→0.686), closing part of the under-coverage gap that is LightGBM's documented
+weakness in this project. That is the composite fitness (`pinball_mean × (1 + 2.0 ×
+miscalibration gap)`) doing exactly what it was built to do: trade a small, mostly
+noise-level amount of pinball loss for materially better calibration, rather than
+gaming the headline metric by tightening intervals further. A larger population/
+generation budget than this machine's ~17-minute run allows would likely separate the
+two more; SARIMA still edges out both LightGBM variants at h=3/h=4 in the full
+comparison table above, which the tuning run doesn't change.
+
+Ensemble-weight search (30 generations, converged early, seconds): **w_naive=0.02,
+w_sarima=0.45, w_lgbm=0.54** — near-zero weight on the weakest model, roughly even
+split between the two competitive ones. Weights are written to
+`data/processed/tuned_hyperparams.json` alongside the LightGBM params; blending them
+into the comparison table is a natural next step, not yet wired into `make baseline`.
+<!-- TUNING_TABLE_END -->
+
 ### Stage 2 — fitted SEI-SIR
 
 25/25 districts converged. Median R₀ **2.92** (range 0.95–5.08), which sits in the
@@ -447,6 +500,11 @@ src/dengue/
     stgnn.py             🚧 stub — GraphSAGE + GRU, pinball loss
   causal/sei_sir.py      Stage 2 — SEI-SIR, fitting, intervention effects
   optim/allocate.py      Stage 3 — allocation ILP, budget sweep, greedy baseline
+  tuning/
+    genetic.py           model-agnostic GA engine (selection, crossover, mutation)
+    search_spaces.py      LGBM + ensemble-weight genomes and decoders
+    fitness.py            rolling_origin-backed fitness, pinball+coverage composite
+    runner.py             `make tune` CLI — LGBM search, confirmation, ensemble search
   eval/
     backtest.py          rolling-origin harness + `make baseline` CLI
     metrics.py           pinball, coverage, MAE/MAPE, lead time
