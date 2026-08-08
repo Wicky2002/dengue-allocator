@@ -20,7 +20,10 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: python -m pip install --upgrade pip && pip install -e ".[dev]"
+        # geo pulls in shapely/geopandas, needed by test_boundaries.py. It's kept
+        # optional in pyproject.toml so `make setup` stays lightweight on a bare
+        # machine, but CI should still exercise that code path.
+        run: python -m pip install --upgrade pip && pip install -e ".[dev,geo]"
 
       - name: Lint
         run: |
