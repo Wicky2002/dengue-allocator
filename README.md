@@ -83,50 +83,69 @@ upgrade.
 
 ## Architecture
 
-```
-                    ┌─────────────────────────────────────────────┐
-   data sources     │  colmozzie · Open-Meteo · ReliefWeb · WER   │
-                    └──────────────────────┬──────────────────────┘
-                                           │  normalise → district_id, iso_week
-                                           ▼
-                    ┌─────────────────────────────────────────────┐
-   frozen contract  │   data/processed/panel.parquet               │
-                    │   one row per district-week (25 districts)   │
-                    └──────────────────────┬──────────────────────┘
-                                           ▼
-                    ┌─────────────────────────────────────────────┐
-   features         │  lags · rolling stats · climate · monsoon   │
-                    │  phase · neighbour-weighted incidence       │
-                    │  ── strictly causal: only data ≤ t ──       │
-                    └──────────────────────┬──────────────────────┘
-                                           ▼
-   STAGE 1          ┌─────────────────────────────────────────────┐
-   forecast         │  SeasonalNaive · SARIMA · LightGBM quantile │
-                    │  → q0.1 / q0.5 / q0.9 at h = 2, 3, 4 weeks  │
-                    └──────────────────────┬──────────────────────┘
-                                           ▼
-                    ┌─────────────────────────────────────────────┐
-   evaluation       │  rolling-origin backtest, expanding window  │
-                    │  pinball · coverage · MAE/MAPE · lead time  │
-                    └──────────────────────┬──────────────────────┘
-                                           ▼
-   STAGE 2          ┌─────────────────────────────────────────────┐
-   causal           │  SEI-SIR fitted per district, then the      │
-                    │  vector parameters INTERVENED on:           │
-                    │  adulticide ↑μ_v · source reduction ↓K      │
-                    │  → concave cases-averted curve per district │
-                    └──────────────────────┬──────────────────────┘
-                                           ▼
-   STAGE 3          ┌─────────────────────────────────────────────┐
-   allocate         │  ILP over x[d,k] ∈ {0,1}: maximise averted  │
-                    │  cases s.t. budget, high-risk floor,        │
-                    │  per-district cap, weekly continuity        │
-                    └──────────────────────┬──────────────────────┘
-                                           ▼
-                    ┌─────────────────────────────────────────────┐
-   dashboard        │  Streamlit — reads cached artifacts only,   │
-                    │  never computes at request time             │
-                    └─────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph SRC["Data sources"]
+        A1["colmozzie<br/>CRAN, CC0"]
+        A2["Open-Meteo<br/>rain / temp / RH"]
+        A3["ReliefWeb<br/>high-risk MOH counts"]
+        A4["Epidemiology Unit WER<br/>PDF tables"]
+        A5["OCHA/HDX + OSM<br/>boundaries, facilities"]
+    end
+
+    A1 --> N
+    A2 --> N
+    A3 --> N
+    A4 --> N
+    A5 --> N
+    N["normalise<br/>district_id, iso_week"] --> P[("panel.parquet<br/>frozen contract, 1 row / district-week")]
+    P --> F["feature engineering<br/>lags . rolling stats . climate . monsoon phase<br/>strictly causal: only data &le; t"]
+
+    subgraph STAGE1["Stage 1 — Forecast"]
+        F --> M1["SeasonalNaive"]
+        F --> M2["SARIMA<br/>Fourier terms"]
+        F --> M3["LightGBM quantile<br/>pooled, 25 districts"]
+        M1 --> BT["rolling-origin backtest<br/>expanding window, val &rarr; test"]
+        M2 --> BT
+        M3 --> BT
+    end
+
+    subgraph GATUNE["GA tuning — offline, make tune"]
+        GA["genetic algorithm engine<br/>tournament select . crossover . mutation<br/>elitism . early stop . wall-clock cap"]
+        M3 -.hyperparameters.-> GA
+        M1 -.blend weights.-> GA
+        M2 -.blend weights.-> GA
+        M3 -.blend weights.-> GA
+        GA --> TJ[("tuned_hyperparams.json")]
+        TJ -.loaded at fit time.-> M3
+    end
+
+    subgraph STAGE2["Stage 2 — Causal effect"]
+        SEI["SEI-SIR<br/>fitted per district"]
+        IV["intervene on vector params<br/>adulticide &uarr;&mu;_v . source reduction &darr;K"]
+        SEI --> IV --> EFF["concave cases-averted<br/>curve per district"]
+    end
+    BT -- forecast level --> EFF
+
+    subgraph STAGE3["Stage 3 — Allocate"]
+        EFF --> ILP["ILP (PuLP / CBC)<br/>maximise averted cases s.t.<br/>budget . high-risk floor . cap"]
+        EFF --> GR["greedy rank-and-fill<br/>baseline for comparison"]
+    end
+
+    ILP --> ART[("artifacts/*.parquet<br/>materialised by make pipeline")]
+    GR --> ART
+    BT --> ART
+    SEI --> ART
+
+    subgraph DASH["Dashboard — Streamlit, reads artifacts only, never computes"]
+        ART --> OV["National Overview<br/>map + forecast + trends, all roles"]
+        ART --> PUB["Public portal"]
+        ART --> HOS["Hospital portal"]
+        ART --> MOH["MOH / Regional portal"]
+        ART --> ADM["National admin portal"]
+        ART --> SC["Scenario simulator<br/>live SEI-SIR re-integration"]
+        ART --> BUD["Budget optimiser<br/>greedy water-filling"]
+    end
 ```
 
 ### Why the stages compose the way they do
