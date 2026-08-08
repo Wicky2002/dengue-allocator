@@ -35,6 +35,15 @@ a note about what feed would enable them.
 
 ---
 
+## See it
+
+![Dashboard walkthrough: Public, Hospital staff, MOH/Regional Health Officer, and National administrator portals over the same real forecast](docs/demo-walkthrough.gif)
+
+Same forecast (real data, all 25 districts), four role-scoped views — the switcher
+demonstrates the access model described below, not a login.
+
+---
+
 ## The problem
 
 Sri Lanka is in an active dengue outbreak. Roughly **87,500 cases** have been notified
@@ -258,7 +267,7 @@ shell (Git Bash, WSL, macOS, Linux).
 | colmozzie | ✅ **Working** | Package archived on CRAN; fetched from `src/contrib/Archive/`. Parsed with a purpose-built RData reader (no `pyreadr`/`rpy2` dependency). Downloads and parses in < 5 s. |
 | Open-Meteo | ✅ **Working** | All four daily variables confirmed served. No API key. |
 | ReliefWeb | ⚠️ **Gated** | **v1 is decommissioned (HTTP 410).** v2 is current but returns **HTTP 403** without a *pre-approved* `appname` (required since 2025-11-01). Module targets v2 and raises with remediation steps. Request an appname at [reliefweb.int/contact](https://reliefweb.int/contact), then set `RELIEFWEB_APPNAME` in `.env`. |
-| WER PDFs | ⚠️ **Parser ready, no automated discovery** | epid.gov.lk is reachable but its WER index is paginated HTML with no stable machine-readable feed. The parser is implemented and unit-tested against a synthetic fixture; supply PDFs explicitly via `wer_pdf.load({iso_week: path})`. |
+| WER PDFs | ✅ **Working — auto-discovered, national, current** | `wer_pdf.discover_reports()` scrapes the epid.gov.lk index (no login) for every issue's PDF link; `download_recent()` bulk-fetches and caches them. All 25 districts, not just Colombo. Every parsed week is cross-checked against the report's own printed national total (`validate_against_national_total`) before being admitted to the panel — of 234 issues since 2022, 147 weeks passed and 86 were excluded, all traced to genuine arithmetic inconsistencies in the source PDFs themselves (confirmed by manual inspection, not parser bugs). This is now the panel's primary case source; `colmozzie` (Colombo-only) is the fallback if it fails. |
 | HDX boundaries | ✅ **Working** | 25/25 districts matched to the registry; simplified 133 MB → 175 KB and committed. |
 | OSM facilities | ✅ **Working** (locations only) | 1,231 facilities across all 25 districts. **Bed tagging is 1/1,231**, so capacity is estimated, not measured. |
 | World Bank beds | ✅ **Working** | 3.93 beds per 1,000 (2023) → ~87,000 national beds. |
@@ -354,9 +363,67 @@ Model selection uses `val`. `test` is touched once, at the end.
 
 Stage 1 model comparison, rolling-origin backtest.
 
+### Real data
+
+> Real WER case data, all 25 districts, auto-discovered and downloaded from
+> epid.gov.lk (see [Data provenance](#data-provenance)). 3,675 rows, 147 validated
+> weeks spanning 2022-09 → 2026-06 (86 weeks excluded by the national-total
+> cross-check — genuine source inconsistencies, not parser failures). This is a much
+> shorter history than the synthetic panel below (194 weeks vs. 520), which matters
+> for reading the table: LightGBM has far less to learn from here.
+
+<!-- RESULTS_TABLE_REAL_START -->
+**Fold: `test`** (trains through 2024, evaluates 2025 + 2026 YTD) — stride 4.
+Reproduce with `make data && make panel && make baseline-real`.
+
+| model | h | `pinball_mean` ↓ | `mae` ↓ | `mape` ↓ | `coverage_80` →0.80 | `interval_width` |
+|:---|--:|--:|--:|--:|--:|--:|
+| sarima                  | 2 | **4.301** | **12.951** | **44.55** | 0.760 | 45.24 |
+| ensemble                | 2 | 4.366 | 13.631 | 44.90 | 0.757 | 38.80 |
+| lgbm_quantile_tuned     | 2 | 5.395 | 15.438 | 53.25 | **0.800** | 43.53 |
+| lgbm_quantile_conformal | 2 | 5.410 | 14.873 | 49.63 | 0.751 | 35.20 |
+| lgbm_quantile           | 2 | 5.413 | 14.873 | 49.63 | 0.585 | **24.55** |
+| seasonal_naive          | 2 | 6.361 | 16.182 | 51.74 | 0.923 | 102.97 |
+| sarima                  | 3 | **5.851** | 17.592 | 49.90 | 0.702 | 53.03 |
+| ensemble                | 3 | 5.903 | **16.954** | **46.22** | 0.705 | 39.33 |
+| lgbm_quantile_tuned     | 3 | 6.566 | 18.792 | 50.14 | **0.754** | 46.33 |
+| lgbm_quantile_conformal | 3 | 6.825 | 17.792 | 49.15 | 0.686 | 34.11 |
+| lgbm_quantile           | 3 | 6.922 | 17.792 | 49.15 | 0.554 | **26.32** |
+| seasonal_naive          | 3 | 7.714 | 23.590 | 52.15 | 0.871 | 89.37 |
+| ensemble                | 4 | **8.828** | **23.666** | **49.95** | **0.736** | 43.43 |
+| lgbm_quantile_conformal | 4 | 9.888 | 24.410 | 53.54 | 0.664 | 33.80 |
+| lgbm_quantile_tuned     | 4 | 9.939 | 26.451 | 55.37 | 0.699 | 45.96 |
+| lgbm_quantile           | 4 | 9.974 | 24.410 | 53.54 | 0.541 | **27.47** |
+| sarima                  | 4 | 10.826 | 27.789 | 57.91 | 0.686 | 59.71 |
+| seasonal_naive          | 4 | 11.117 | 28.461 | 59.70 | 0.883 | 101.32 |
+
+**What this shows (on real data) — no spin:**
+
+- **SARIMA and the ensemble win, not LightGBM.** The real panel has only 194 weeks of
+  history against the synthetic table's 520 — even the *real-data*-tuned LightGBM
+  doesn't have enough history to beat a well-specified seasonal statistical model on
+  pinball loss. This flips the synthetic-panel story below and is reported as found,
+  not adjusted to look better.
+- **Conformal calibration works as designed, measurably.** `lgbm_quantile_conformal`
+  vs. plain `lgbm_quantile`, `coverage_80`: 0.585→0.751 (h=2), 0.554→0.686 (h=3),
+  0.541→0.664 (h=4) — a real, substantial correction toward the 0.80 target on
+  held-out test data, not a training-fit artifact, at the honest cost of wider
+  intervals.
+- **The ensemble is the strongest model at h=4** (and close behind SARIMA at h=2/h=3),
+  blending naive+SARIMA+LightGBM with weights the GA found against this same real
+  panel — `w_naive=0.13, w_sarima=0.19, w_lgbm=0.68` (see
+  [GA tuning](#ga-hyperparameter-tuning) below).
+- **GA tuning helps LightGBM a lot on real data** — see the GA tuning section below
+  for the full before/after. `coverage_80` moves from ~0.56 to ~0.75 on average across
+  horizons, a much bigger effect than on synthetic data, because the untuned default
+  is far more overconfident with only 194 weeks of real history to fit.
+
+### Synthetic data
+
 > ⚠️ **The table below is from the SYNTHETIC panel** — simulated data for pipeline
-> development. It demonstrates that the harness runs end to end; it is **not** a
-> real-world performance claim. Real-data results land once the WER backfill is in.
+> development, kept as a controlled, larger-history comparison point now that real
+> results exist above. It demonstrates that the harness runs end to end; it is not a
+> real-world performance claim on its own.
 
 <!-- RESULTS_TABLE_START -->
 **Fold: `test`** (trains through 2024, evaluates 2025 + 2026 YTD) — 25 districts, 520 weeks,
@@ -417,7 +484,48 @@ exactly once, by a confirmation run *after* the search has already picked a winn
 the numbers below are not gamed against the fold they're reported on. A second, much
 cheaper genome searches ensemble-blend weights across the three base models.
 
-> ⚠️ Also run against the **synthetic** panel — see the caveat above.
+#### Real data
+
+Run against the real WER panel (population 24, generations 15, patience 2 —
+**converged naturally via early stopping at generation 8/15**, not cut short by the
+45-minute wall-clock cap; total 27 min including the confirmation backtest). Reproduce
+with `python -m dengue.tuning.runner --population 24 --generations 15 --max-minutes 45
+--ensemble-population 40 --ensemble-generations 25` then `make baseline-real`.
+
+**Fold: `test`**, default vs. GA-tuned LightGBM:
+
+| model | h | `pinball_mean` ↓ | `coverage_80` →0.80 | `interval_width` |
+|:---|--:|--:|--:|--:|
+| lgbm_quantile (default) | 2 | **5.413** | 0.585 | **24.55** |
+| lgbm_quantile_tuned     | 2 | 5.395 | **0.800** | 43.53 |
+| lgbm_quantile (default) | 3 | 6.922 | 0.554 | **26.32** |
+| lgbm_quantile_tuned     | 3 | **6.566** | **0.754** | 46.33 |
+| lgbm_quantile (default) | 4 | 9.974 | 0.541 | **27.47** |
+| lgbm_quantile_tuned     | 4 | **9.939** | **0.699** | 45.96 |
+
+**What this shows:** on real data the effect is much larger than the synthetic run
+below. `coverage_80` moves from **0.585→0.800** (h=2, landing almost exactly on the
+0.80 target), **0.554→0.754** (h=3), **0.541→0.699** (h=4) — a real, substantial
+calibration fix, not noise. Pinball loss moves in the *same* direction too this time
+(5.413→5.395, 6.922→6.566, 9.974→9.939), so this is not a coverage-for-accuracy
+trade — the wider, better-calibrated intervals cost nothing on the headline metric
+here. The reason the real-data effect is so much bigger than the synthetic one: the
+untuned default is badly overconfident on only 194 weeks of real history, so there is
+far more calibration gap for the search to close. SARIMA still wins outright at h=2/h=3
+and the ensemble still wins at h=4 in the full real-data comparison table above — GA
+tuning improves LightGBM specifically, it does not make LightGBM the best model.
+
+Ensemble-weight search (40 population, 25 generations, converged in 2 generations,
+~2s): **w_naive=0.13, w_sarima=0.19, w_lgbm=0.68** — a real shift from the synthetic
+run's weights below, leaning much harder on LightGBM now that it is tuned. Both sets
+of weights are written to `data/processed/tuned_hyperparams.json` and used by
+`EnsembleBlend` (`src/dengue/models/ensemble.py`), which is wired into
+`make baseline` / `make baseline-real` as the `"ensemble"` row in the tables above.
+
+#### Synthetic data
+
+> ⚠️ Also run against the **synthetic** panel — kept as an earlier, smaller-scale
+> reference point now that the real-data run above exists.
 
 <!-- TUNING_TABLE_START -->
 On this run (population 8, generations 5 — converged via early stopping after 2

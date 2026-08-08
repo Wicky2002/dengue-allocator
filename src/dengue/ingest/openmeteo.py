@@ -31,6 +31,7 @@ half-observed week would look like a drought.
 from __future__ import annotations
 
 import datetime as dt
+import time
 from pathlib import Path
 
 import pandas as pd
@@ -66,6 +67,11 @@ DEFAULT_START = "2010-01-01"
 ARCHIVE_LAG_DAYS = 6
 
 OPENMETEO_LICENCE = "CC-BY-4.0"
+
+#: Pause between per-district requests. Confirmed empirically: 16 sequential,
+#: unpaced district requests triggered a 429 on the 17th -- the free tier
+#: rate-limits bursts, not just sustained volume.
+_REQUEST_DELAY_SECONDS = 1.0
 
 
 def default_end_date() -> str:
@@ -199,6 +205,8 @@ def load(
         log.debug(
             "open-meteo: [%2d/%d] %-14s days=%d", i, len(district_ids), district_id, len(frame)
         )
+        if i < len(district_ids):
+            time.sleep(_REQUEST_DELAY_SECONDS)
 
     daily = pd.concat(frames, ignore_index=True)
     log.info(

@@ -55,6 +55,15 @@ class ConformalQuantileWrapper(ForecastModel):
         everywhere else in this project.
     min_train_weeks:
         Passed through to the calibration :func:`rolling_origin` call.
+    calib_stride:
+        Stride for the inner calibration :func:`rolling_origin` call.
+        Defaults to ``calib_weeks`` -- i.e. a single calibration split, which
+        is what "split-conformal" means: one held-out window, scored once per
+        district. This also matters at backtest scale: an *outer* backtest
+        with N origins each fits a fresh :class:`ConformalQuantileWrapper`,
+        so every extra inner origin multiplies total cost by N. A finer
+        stride (more inner origins) trades that cost for more calibration
+        points spread across more calendar weeks.
 
     Notes
     -----
@@ -74,12 +83,14 @@ class ConformalQuantileWrapper(ForecastModel):
         calib_weeks: int = 12,
         alpha: float = 1.0 - config.PI_NOMINAL_COVERAGE,
         min_train_weeks: int = 52,
+        calib_stride: int | None = None,
     ) -> None:
         self.base_model_factory = base_model_factory
         self.horizons = horizons
         self.calib_weeks = calib_weeks
         self.alpha = alpha
         self.min_train_weeks = min_train_weeks
+        self.calib_stride = calib_stride
         self._base_model: ForecastModel | None = None
         self._correction: dict[int, float] = {}
 
@@ -104,7 +115,7 @@ class ConformalQuantileWrapper(ForecastModel):
                 panel,
                 horizons=self.horizons,
                 folds=[calib_fold],
-                stride=1,
+                stride=self.calib_stride or self.calib_weeks,
                 min_train_weeks=self.min_train_weeks,
             )
             if not calib_predictions.empty:
