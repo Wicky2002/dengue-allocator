@@ -536,8 +536,20 @@ def build_default_models() -> dict[str, ModelLike]:
     enough to get tuned-vs-default as two distinct rows in the comparison
     table with no changes anywhere else. Absent the file, this is a no-op --
     identical to every run before tuning existed.
+
+    An ``"ensemble"`` entry is always present, using
+    :class:`~dengue.models.ensemble.EnsembleBlend`: the GA's tuned blend
+    weights if ``make tune`` has found them, equal weights otherwise (that
+    fallback is `EnsembleBlend`'s own, not special-cased here).
+
+    A ``"lgbm_quantile_conformal"`` entry wraps the default (untuned) LGBM in
+    :class:`~dengue.models.calibration.ConformalQuantileWrapper`, targeting
+    the documented under-coverage problem directly via a held-out-window
+    interval correction rather than the GA's indirect fitness-penalty route.
     """
     from dengue.models.baseline import SarimaBaseline, SeasonalNaive
+    from dengue.models.calibration import ConformalQuantileWrapper
+    from dengue.models.ensemble import EnsembleBlend
     from dengue.models.lgbm_quantile import LGBMQuantile
     from dengue.tuning.runner import load_tuned_params
 
@@ -545,6 +557,8 @@ def build_default_models() -> dict[str, ModelLike]:
         "seasonal_naive": SeasonalNaive,
         "sarima": SarimaBaseline,
         "lgbm_quantile": LGBMQuantile,
+        "lgbm_quantile_conformal": lambda: ConformalQuantileWrapper(LGBMQuantile),
+        "ensemble": EnsembleBlend,
     }
 
     tuned = load_tuned_params("lgbm_quantile")

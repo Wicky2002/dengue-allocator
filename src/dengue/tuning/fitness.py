@@ -205,15 +205,29 @@ def blend_predictions(merged: pd.DataFrame, weights: dict[str, float]) -> pd.Dat
     A weighted average of already-sorted quantiles is itself sorted in exact
     arithmetic; :func:`~dengue.models.enforce_quantile_monotonicity` is
     applied anyway as cheap insurance against floating-point noise.
+
+    ``weights`` may name a model that isn't actually in ``merged`` -- e.g.
+    one sub-model failed to predict for this origin and
+    :func:`merge_base_predictions` dropped it entirely. Rather than a
+    ``KeyError``, that model's weight is dropped and the rest are
+    renormalised to still sum to 1, so a single sub-model outage degrades the
+    blend gracefully instead of crashing or silently under-scaling it.
     """
     if merged.empty:
         return merged.assign(**{q: pd.Series(dtype="float64") for q in QUANTILE_COLUMNS})[
             list(PREDICTION_COLUMNS)
         ]
 
+    present = {key: w for key, w in weights.items() if f"q0.5__{key}" in merged.columns}
+    total = sum(present.values())
+    if total <= 1e-9:
+        present = dict.fromkeys(present, 1.0 / len(present)) if present else {}
+        total = 1.0
+    present = {key: w / total for key, w in present.items()}
+
     out = merged[list(_JOIN_KEYS)].copy()
     for q in QUANTILE_COLUMNS:
-        out[q] = sum(weights[key] * merged[f"{q}__{key}"] for key in weights)
+        out[q] = sum(weight * merged[f"{q}__{key}"] for key, weight in present.items())
     return enforce_quantile_monotonicity(out)[list(PREDICTION_COLUMNS)]
 
 
