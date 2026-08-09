@@ -59,3 +59,4 @@ desktop.ini
 
 # local run logs
 *.log
+.claude

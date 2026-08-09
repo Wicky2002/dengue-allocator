@@ -183,14 +183,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-if is_synthetic:
-    st.error(
-        "**Simulated data.** This run used the synthetic panel — realistic dynamics, "
-        "but not observations. Do not read any figure here as real epidemiology. "
-        "Run `make panel && make pipeline` against real sources for live figures.",
-        icon="🔬",
-    )
-
 # --------------------------------------------------------------------------
 # National overview -- identical for every role, before anything role-scoped
 # --------------------------------------------------------------------------
