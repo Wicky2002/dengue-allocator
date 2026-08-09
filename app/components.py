@@ -329,12 +329,12 @@ def rainfall_cases_overlay(history: pd.DataFrame, height: int = 300) -> alt.Char
 
     long = pd.concat(
         [
-            frame[["iso_week", "cases_norm", "cases"]].rename(
-                columns={"cases_norm": "value", "cases": "raw"}
-            ).assign(series="Dengue cases"),
-            frame[["iso_week", "rain_norm", "rain_mm"]].rename(
-                columns={"rain_norm": "value", "rain_mm": "raw"}
-            ).assign(series="Rainfall"),
+            frame[["iso_week", "cases_norm", "cases"]]
+            .rename(columns={"cases_norm": "value", "cases": "raw"})
+            .assign(series="Dengue cases"),
+            frame[["iso_week", "rain_norm", "rain_mm"]]
+            .rename(columns={"rain_norm": "value", "rain_mm": "raw"})
+            .assign(series="Rainfall"),
         ],
         ignore_index=True,
     )
