@@ -18,6 +18,7 @@ from components import (
     history_and_forecast_chart,
     kpi_grid,
     provenance_badge,
+    rainfall_cases_overlay,
     rainfall_vs_cases,
     recommendation_list,
     risk_pill,
@@ -179,6 +180,7 @@ def national_overview(data: dict[str, pd.DataFrame], horizon: int) -> None:
         else:
             st.info("Not enough data for a trend chart yet.", icon="ℹ️")
 
+    national = None
     with rain_col:
         st.markdown("**Rainfall and dengue cases**")
         if panel is not None and not panel.empty:
@@ -193,6 +195,15 @@ def national_overview(data: dict[str, pd.DataFrame], horizon: int) -> None:
                 "larvae develop, adult mosquitoes emerge, and only then does "
                 "transmission rise."
             )
+
+    if national is not None and not national.empty:
+        st.markdown("**Rainfall and cases, overlaid**")
+        st.altair_chart(rainfall_cases_overlay(national, height=260), use_container_width=True)
+        st.caption(
+            "Same two series, one timeline — each normalised to its own 0–100 "
+            "range so the lag is easy to eyeball. Not a magnitude comparison "
+            "between rain and cases; see the stacked panels above for that."
+        )
 
 
 # ==========================================================================
@@ -248,6 +259,15 @@ def public_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: 
             if not history.empty:
                 st.markdown("**Recent weekly cases**")
                 st.altair_chart(trend_chart(history), use_container_width=True)
+
+                st.markdown(f"**Rainfall and cases in {chosen}, overlaid**")
+                st.altair_chart(
+                    rainfall_cases_overlay(history, height=240), use_container_width=True
+                )
+                st.caption(
+                    "Both series normalised to their own 0–100 range so the "
+                    "rain-to-cases lag is easy to see for this district specifically."
+                )
 
     with tab_learn:
         c1, c2 = st.columns(2)

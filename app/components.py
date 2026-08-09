@@ -12,7 +12,7 @@ from typing import Any
 import altair as alt
 import pandas as pd
 import streamlit as st
-from theme import CATEGORICAL, INK_MUTED, SEQUENTIAL_BLUE, STATUS
+from theme import BASELINE, CATEGORICAL, INK_MUTED, SEQUENTIAL_BLUE, STATUS
 
 from dengue.platform.provenance import ProvenanceTier
 from dengue.platform.risk import RiskLevel
@@ -302,11 +302,73 @@ def rainfall_vs_cases(history: pd.DataFrame, height: int = 300) -> alt.Chart:
     return alt.vconcat(cases, rain, spacing=6).resolve_scale(x="shared")
 
 
+def rainfall_cases_overlay(history: pd.DataFrame, height: int = 300) -> alt.Chart:
+    """Rainfall and cases on one shared timeline, for direct lag comparison.
+
+    This is a companion to :func:`rainfall_vs_cases`, not a replacement for
+    it -- that function's stacked-panel design stays the honest default. This
+    one exists because overlaying the two series makes the ~6-8 week lag easy
+    to eyeball at a glance, which two separate panels don't give you for free.
+
+    It still avoids a raw dual-axis (two independently chosen y-scales can
+    manufacture any apparent correlation): both series are min-max normalised
+    to 0-100 over the plotted window and share one axis, so the vertical
+    position only ever encodes "how close to this series' own peak", not a
+    magnitude comparison between rain and cases.
+    """
+    frame = history[["iso_week", "cases", "rain_mm"]].dropna().sort_values("iso_week").copy()
+
+    def _normalise(series: pd.Series) -> pd.Series:
+        lo, hi = series.min(), series.max()
+        if hi <= lo:
+            return series * 0.0
+        return (series - lo) / (hi - lo) * 100.0
+
+    frame["cases_norm"] = _normalise(frame["cases"])
+    frame["rain_norm"] = _normalise(frame["rain_mm"])
+
+    long = pd.concat(
+        [
+            frame[["iso_week", "cases_norm", "cases"]].rename(
+                columns={"cases_norm": "value", "cases": "raw"}
+            ).assign(series="Dengue cases"),
+            frame[["iso_week", "rain_norm", "rain_mm"]].rename(
+                columns={"rain_norm": "value", "rain_mm": "raw"}
+            ).assign(series="Rainfall"),
+        ],
+        ignore_index=True,
+    )
+
+    colours = {"Dengue cases": CATEGORICAL[0], "Rainfall": CATEGORICAL[2]}
+
+    lines = (
+        alt.Chart(long)
+        .mark_line(strokeWidth=2.25, point=alt.OverlayMarkDef(size=35, filled=True))
+        .encode(
+            x=alt.X("iso_week:T", title=None),
+            y=alt.Y("value:Q", title="Relative scale (0-100, each series normalised)"),
+            color=alt.Color(
+                "series:N",
+                scale=alt.Scale(domain=list(colours), range=list(colours.values())),
+                legend=alt.Legend(title=None, orient="top"),
+            ),
+            tooltip=[
+                alt.Tooltip("iso_week:T", title="Week"),
+                alt.Tooltip("series:N", title="Series"),
+                alt.Tooltip("raw:Q", title="Value", format=",.1f"),
+            ],
+        )
+        .properties(height=height)
+    )
+    return lines
+
+
 def history_and_forecast_chart(
     history: pd.DataFrame,
     forecast: pd.DataFrame,
     *,
     height: int = 320,
+    history_weeks: int | None = 10,
 ) -> alt.Chart:
     """One continuous timeline: solid observed history flowing into a dashed
     forecast band.
@@ -324,6 +386,13 @@ def history_and_forecast_chart(
         somewhat wider than a jointly-modelled national interval would be --
         but it is the right order of magnitude for an at-a-glance overview
         chart, not a number anyone should plan clinical capacity against.
+    history_weeks:
+        Trim the observed line to this many trailing weeks before charting
+        (``None`` keeps the full history passed in). The forecast horizon is
+        fixed at 2-4 weeks by the underlying models -- it cannot be extended
+        without retraining -- so the way to make the forecast the visual
+        focus of a chart that would otherwise be mostly history is to shrink
+        the history window, not to invent forecast weeks that don't exist.
 
     The last observed point is duplicated as the first forecast point (with
     zero-width interval) so the band starts exactly where the solid line
@@ -331,6 +400,9 @@ def history_and_forecast_chart(
     """
     hist = history[["iso_week", "cases"]].rename(columns={"iso_week": "week"}).copy()
     hist["kind"] = "observed"
+    hist = hist.sort_values("week")
+    if history_weeks is not None and len(hist) > history_weeks:
+        hist = hist.tail(history_weeks)
 
     fc = forecast.rename(
         columns={"target_week": "week", "q0.5": "median", "q0.1": "lower", "q0.9": "upper"}
@@ -349,9 +421,11 @@ def history_and_forecast_chart(
         )
         fc = pd.concat([bridge, fc], ignore_index=True)
 
+    forecast_colour = CATEGORICAL[1]  # orange -- distinct from observed blue, draws the eye
+
     band = (
         alt.Chart(fc)
-        .mark_area(color=CATEGORICAL[0], opacity=0.18, line=False)
+        .mark_area(color=forecast_colour, opacity=0.28, line=False)
         .encode(
             x=alt.X("week:T", title=None),
             y=alt.Y("lower:Q", title="Cases"),
@@ -361,7 +435,7 @@ def history_and_forecast_chart(
     )
     observed_line = (
         alt.Chart(hist)
-        .mark_line(color=CATEGORICAL[0], strokeWidth=2)
+        .mark_line(color=CATEGORICAL[0], strokeWidth=1.75, opacity=0.75)
         .encode(
             x="week:T",
             y=alt.Y("cases:Q", title="Cases"),
@@ -373,7 +447,7 @@ def history_and_forecast_chart(
     )
     forecast_line = (
         alt.Chart(fc)
-        .mark_line(color=CATEGORICAL[0], strokeWidth=2, strokeDash=[5, 4])
+        .mark_line(color=forecast_colour, strokeWidth=3.5, strokeDash=[5, 4])
         .encode(
             x="week:T",
             y=alt.Y("median:Q", title="Cases"),
@@ -387,11 +461,35 @@ def history_and_forecast_chart(
     )
     forecast_points = (
         alt.Chart(fc[fc["kind"] == "forecast"])
-        .mark_point(color=CATEGORICAL[0], size=55, filled=True)
+        .mark_point(color=forecast_colour, size=110, filled=True, stroke="white", strokeWidth=1)
         .encode(x="week:T", y="median:Q")
     )
 
-    return (band + observed_line + forecast_line + forecast_points).properties(height=height)
+    layers = [band, observed_line, forecast_line, forecast_points]
+
+    if not hist.empty and not fc.empty:
+        boundary = hist["week"].iloc[-1]
+        rule = (
+            alt.Chart(pd.DataFrame({"week": [boundary]}))
+            .mark_rule(color=BASELINE, strokeDash=[2, 2], strokeWidth=1)
+            .encode(x="week:T")
+        )
+        label_row = fc[fc["kind"] == "forecast"].iloc[[-1]].copy()
+        label = (
+            alt.Chart(label_row)
+            .mark_text(
+                align="right",
+                baseline="bottom",
+                dy=-8,
+                color=forecast_colour,
+                fontWeight="bold",
+                fontSize=12,
+            )
+            .encode(x="week:T", y="upper:Q", text=alt.value("Forecast"))
+        )
+        layers = [rule, *layers, label]
+
+    return alt.layer(*layers).properties(height=height)
 
 
 def recommendation_list(recommendations, limit: int = 6) -> None:
