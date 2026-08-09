@@ -192,6 +192,14 @@ make app         # launch the dashboard
 **Both `make baseline` and `make pipeline` run fully offline** against a synthetic
 panel: no network, no API keys, no manual steps.
 
+> **`make app` works straight after `make setup`.** The dashboard artifacts in
+> `artifacts/` are committed (a documented exception in `.gitignore`) so a fresh
+> clone — and the hosted demo, which cannot run a ~234-PDF ingest during a cold
+> start — opens on **real** figures rather than the synthetic panel. They are a
+> dated snapshot: the app prints its pipeline run time and panel date range on
+> every page. Refresh them with `make data && make panel && make pipeline-real`.
+> Source data under `data/` is still never committed.
+
 To run against real data:
 
 ```bash

@@ -1,4 +1,7 @@
-# --- data & artifacts (never commit case data or model outputs) ---
+# --- data & artifacts ---
+# Source data is never committed: it comes from `make data && make panel`,
+# so the pipeline stays reproducible from source rather than from a blob
+# checked in here. That rule still holds for everything under data/.
 data/*
 !data/.gitkeep
 !data/raw/
@@ -13,6 +16,43 @@ data/processed/*
 
 artifacts/*
 !artifacts/.gitkeep
+
+# DELIBERATE EXCEPTION -- the dashboard artifacts are committed.
+#
+# The hosted demo (Streamlit Community Cloud) clones this repo and has no
+# way to run `make data` for itself: the real panel needs ~234 WER PDFs
+# downloaded and parsed plus a rate-limited Open-Meteo backfill, which takes
+# far longer than a cold start allows and would redo itself on every reboot.
+# Without these files the public deployment can only ever show the synthetic
+# demo panel, which undersells a platform whose whole point is real figures.
+#
+# What this does and does not relax:
+#   * These are aggregate district-week counts from the Epidemiology Unit's
+#     PUBLISHED Weekly Epidemiological Reports -- public, non-personal data.
+#   * Source data (data/) stays ignored. The panel is still built from
+#     source, not from anything committed here.
+#   * Only the 14 files app/streamlit_app.py's ARTIFACT_NAMES actually reads
+#     are listed. predictions.parquet (the largest, ~207 KB) is read by no
+#     page and stays ignored.
+#
+# These are a dated SNAPSHOT, not live data. Refresh with
+# `make data && make panel && make pipeline-real` and re-commit; the app
+# shows the pipeline run time and panel date range on every page so a stale
+# snapshot is visible as stale rather than passing as current.
+!artifacts/pipeline_meta.parquet
+!artifacts/district_risk.parquet
+!artifacts/panel_recent.parquet
+!artifacts/forecasts.parquet
+!artifacts/scores.parquet
+!artifacts/effect_table.parquet
+!artifacts/allocation_sweep.parquet
+!artifacts/allocation_summary.parquet
+!artifacts/sei_sir_params.parquet
+!artifacts/hospital_readiness.parquet
+!artifacts/district_capacity.parquet
+!artifacts/health_facilities.parquet
+!artifacts/scenarios.parquet
+!artifacts/budget_sweep.parquet
 
 # --- python ---
 __pycache__/
