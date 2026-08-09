@@ -283,7 +283,7 @@ PAGE_CSS = f"""
     background: linear-gradient(120deg, {CATEGORICAL[0]} 0%, #1c5cab 100%);
     border-radius: 0;
     width: calc(100% + 4rem);
-    padding: 22px 2rem 20px;
+    padding: 26px 2rem 22px;
     margin: 0 -2rem 20px -2rem;
     box-shadow: 0 1px 2px rgba(11,11,11,0.08);
   }}
@@ -293,13 +293,20 @@ PAGE_CSS = f"""
     gap: 12px;
     margin-bottom: 2px;
   }}
+  /* line-height must leave headroom above the cap line: emoji glyphs render
+     TALLER than their em box (Segoe UI Emoji especially), so `line-height: 1`
+     on the 26px mark gave it a 26px line box the glyph overflowed, and the
+     overflow -- which the bar's top padding does not account for -- read as
+     the mosquito being clipped by the top edge of the header bar. Both mark
+     and title share the same value so baseline alignment stays predictable. */
   .app-header .mark {{
     font-size: 26px;
-    line-height: 1;
+    line-height: 1.3;
     filter: drop-shadow(0 1px 1px rgba(0,0,0,0.18));
   }}
   .app-header .title {{
     font-size: 24px;
+    line-height: 1.3;
     font-weight: 700;
     color: #ffffff;
     letter-spacing: -.01em;
