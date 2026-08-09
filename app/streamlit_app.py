@@ -1,4 +1,4 @@
-"""Dengue Allocator — national dengue decision-support platform for Sri Lanka.
+"""DengueSentinel — national dengue decision-support platform for Sri Lanka.
 
 Four role portals over a three-stage engine:
 
@@ -47,7 +47,7 @@ from dengue import config
 from dengue.platform.rbac import DEMO_PRINCIPALS, Role
 
 st.set_page_config(
-    page_title="Dengue Allocator — Sri Lanka",
+    page_title="DengueSentinel — Sri Lanka",
     page_icon="🦟",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -105,7 +105,7 @@ if "district_risk" not in data:
     # skips straight to `load_all()` above) -- it is not a per-request
     # compute path, so it does not violate the invariant it looks like it's
     # bending.
-    st.title("Dengue Allocator — Sri Lanka")
+    st.title("DengueSentinel — Sri Lanka")
     try:
         with st.spinner(
             "Building the demo dataset (first run only, ~2-5 min) — "
@@ -135,7 +135,7 @@ is_synthetic = bool(meta["is_synthetic"].iloc[0]) if meta is not None and not me
 # --------------------------------------------------------------------------
 
 with st.sidebar:
-    st.markdown("## 🦟 Dengue Allocator")
+    st.markdown("## 🦟 DengueSentinel")
     st.caption("National dengue decision support · Sri Lanka")
     st.divider()
 
@@ -175,7 +175,7 @@ if meta is not None and not meta.empty:
 
 st.markdown(
     app_header(
-        "Dengue Allocator",
+        "DengueSentinel",
         f"Forecast → causal effect → allocation · <strong>{role.label}</strong> portal · "
         f"{principal.scope_label()}",
         meta_line,

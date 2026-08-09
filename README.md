@@ -1,7 +1,9 @@
-# dengue-allocator
+# DengueSentinel
 
 **A national dengue decision-support platform for Sri Lanka** — forecast → causal
 effect → allocation, behind four role-based portals.
+
+*(repo name `dengue-allocator` for historical reasons; the product is DengueSentinel)*
 
 AI Challenge Sri Lanka 2026 — Phase 1 submission.
 
