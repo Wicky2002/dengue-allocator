@@ -115,8 +115,10 @@ def choropleth(
     domain_order: list[str] | None = None,
     tooltip_columns: list[tuple[str, str, str]] | None = None,
     height: int = 520,
-    width: int = 460,
+    width: int = 620,
     legend_title: str = "",
+    enable_click: bool = False,
+    highlight_column: str | None = None,
 ) -> alt.Chart | None:
     """District choropleth of Sri Lanka.
 
@@ -139,7 +141,25 @@ def choropleth(
         out to be Streamlit's data pipeline, not sizing -- but geoshape's
         ``.project()`` still reads more predictably from a fixed extent than
         a container-relative one, so this chart is still meant to be called
-        with ``st.altair_chart(chart)``, not ``use_container_width=True``.
+        with ``st.altair_chart(chart)``, not ``width="stretch"``.
+    enable_click:
+        Adds a point-selection param named ``"district_click"`` keyed on
+        ``properties.district_id`` (the geometry's own field, unaffected by
+        the value lookup). The caller must still pass ``on_select="rerun"``
+        to ``st.altair_chart`` and read ``event.selection["district_click"]``
+        to act on it -- this only wires the chart side.
+    highlight_column:
+        Name of a boolean column in ``values`` driving which district is
+        dimmed vs. full-opacity. Pass this (rather than relying on the
+        chart's own click param for the *visual* highlight) when this map's
+        selection needs to stay in sync with another, separately-rendered
+        chart -- e.g. a companion ranked bar list -- since two independent
+        ``st.altair_chart`` components each have their own client-side click
+        state and cannot see each other's. The caller is expected to
+        recompute this column from shared ``st.session_state`` before
+        calling, so both charts read the same one true selection instead of
+        each tracking its own. Falls back to the local click param when
+        ``enable_click`` is set but this is omitted.
 
     Returns
     -------
@@ -158,6 +178,10 @@ def choropleth(
     safe_value_column = _safe_field(value_column)
     rename_map = {value_column: safe_value_column}
     rename_map.update({c: _safe_field(c) for c, _, _ in tooltip_columns})
+    safe_highlight_column = None
+    if highlight_column is not None:
+        safe_highlight_column = _safe_field(highlight_column)
+        rename_map.setdefault(highlight_column, safe_highlight_column)
 
     values = values.rename(columns=rename_map)
     lookup_fields = list(dict.fromkeys(rename_map.values()))
@@ -204,6 +228,24 @@ def choropleth(
         .project(type="mercator")
         .properties(width=width, height=height, title=title or "")
     )
+    if safe_highlight_column is not None:
+        # Shared-state highlight: both this map and a companion chart (if any)
+        # dim/brighten off the same session_state-derived column, so clicking
+        # either one visually updates both -- two separate st.altair_chart
+        # components each have their own client-side selection and cannot see
+        # each other's, so this is the only way to keep them in sync.
+        chart = chart.encode(
+            opacity=alt.condition(f"datum.{safe_highlight_column}", alt.value(1.0), alt.value(0.55))
+        )
+    if enable_click:
+        click = alt.selection_point(
+            name="district_click", fields=["properties.district_id"], empty=False
+        )
+        chart = chart.add_params(click)
+        if safe_highlight_column is None:
+            # No shared-state column supplied: fall back to this chart's own
+            # local click state for the visual highlight.
+            chart = chart.encode(opacity=alt.condition(click, alt.value(1.0), alt.value(0.72)))
     return chart
 
 
@@ -509,11 +551,11 @@ def recommendation_list(recommendations, limit: int = 6) -> None:
         )
 
 
-def facility_map(facilities: pd.DataFrame, height: int = 520, width: int = 460) -> alt.Chart | None:
+def facility_map(facilities: pd.DataFrame, height: int = 520, width: int = 620) -> alt.Chart | None:
     """Health facilities over the district outline.
 
     Like :func:`choropleth`, ``width`` must be a concrete number -- render with
-    ``st.altair_chart(chart)``, not ``use_container_width=True``. See
+    ``st.altair_chart(chart)``, not ``width="stretch"``. See
     :func:`choropleth`'s docstring for why.
     """
     geo_source = _geometry_source()

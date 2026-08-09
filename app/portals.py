@@ -27,6 +27,7 @@ from components import (
 from theme import CATEGORICAL, kpi_html
 
 from dengue import config
+from dengue.platform.hospital import ClinicalRatios
 from dengue.platform.provenance import SOURCE_REGISTRY, ProvenanceTier, unavailable_reason
 from dengue.platform.rbac import Permission, Principal, filter_to_scope
 from dengue.platform.risk import (
@@ -39,9 +40,83 @@ from dengue.platform.risk import (
 
 DISTRICT_NAMES = {d.district_id: d.name for d in config.DISTRICTS}
 
+#: session_state keys for the hospital-portal ratio sliders -> their default
+#: value, used both to seed the sliders and to reset them in one click. Kept
+#: in sync with ClinicalRatios' own defaults rather than restated as literals.
+_HOSPITAL_DEFAULTS = ClinicalRatios()
+_RATIO_DEFAULTS = {
+    "ratio_hosp": _HOSPITAL_DEFAULTS.hospitalisation_rate,
+    "ratio_sev": _HOSPITAL_DEFAULTS.severe_fraction_of_admitted,
+    "ratio_icu": _HOSPITAL_DEFAULTS.icu_fraction_of_admitted,
+    "ratio_los": _HOSPITAL_DEFAULTS.mean_length_of_stay_days,
+    "ratio_plt": _HOSPITAL_DEFAULTS.platelet_units_per_severe_case,
+    "ratio_nurse": _HOSPITAL_DEFAULTS.nurses_per_occupied_bed,
+}
+
 
 def _fmt(value: float, digits: int = 0) -> str:
     return "—" if pd.isna(value) else f"{value:,.{digits}f}"
+
+
+def _first_selected_value(payload: object, field: str) -> str | None:
+    """Pull the first value of ``field`` out of a Vega-Lite point-selection payload.
+
+    Streamlit's chart-selection events aren't documented down to the exact
+    shape (column-oriented ``{"field": [...]}`` vs. row-oriented
+    ``[{"field": ...}, ...]`` both appear in the wild depending on Vega-Lite
+    version), so this accepts either rather than assuming one and raising on
+    the other. For a dotted ``field`` like ``"properties.district_id"`` it
+    also tries the bare trailing segment (``"district_id"``) and the
+    backslash-escaped literal Vega-Lite actually emits for a selection
+    ``fields`` entry containing a dot (``"properties\\.district_id"``,
+    confirmed by inspecting a live click payload) -- this project's own
+    choropleth code has already hit one real bug (:func:`components._safe_field`)
+    from a dotted field name silently breaking somewhere in this exact
+    pipeline, so a nested selection field is exactly the case not to assume
+    about.
+    """
+    if not payload:
+        return None
+    candidates = [field]
+    if "." in field:
+        candidates.append(field.rsplit(".", 1)[-1])
+        candidates.append(field.replace(".", "\\."))
+
+    if isinstance(payload, list):
+        if payload and isinstance(payload[0], dict):
+            row = payload[0]
+            for key in candidates:
+                if key in row:
+                    return row[key]
+        return None
+    if isinstance(payload, dict):
+        for key in candidates:
+            values = payload.get(key)
+            if isinstance(values, list) and values:
+                return values[0]
+            if isinstance(values, str):
+                return values
+    return None
+
+
+def _risk_choropleth(
+    frame: pd.DataFrame, *, enable_click: bool = False, highlight_column: str | None = None
+) -> alt.Chart | None:
+    """The district risk-level choropleth, shared by the National overview and
+    the MOH portal's Hotspots tab -- identical encoding, different data scope,
+    so this is the one place to change if either needs to."""
+    return choropleth(
+        frame,
+        value_column="risk_level",
+        categorical=True,
+        tooltip_columns=[
+            ("q0.5", "Forecast cases", ".0f"),
+            ("incidence_per_100k", "Per 100,000", ".1f"),
+        ],
+        legend_title="Risk level",
+        enable_click=enable_click,
+        highlight_column=highlight_column,
+    )
 
 
 def _risk_frame(district_risk: pd.DataFrame, horizon: int) -> pd.DataFrame:
@@ -107,24 +182,40 @@ def national_overview(data: dict[str, pd.DataFrame], horizon: int) -> None:
         ]
     )
 
+    # Both the map and the ranked bars below highlight off this one column
+    # rather than each tracking its own click state -- two separate
+    # st.altair_chart components each have an independent client-side
+    # selection and cannot see each other's, so the only way to keep "click
+    # the map" and "click a bar" visually in sync is to have both read the
+    # same session_state-derived truth on every rerun.
+    remembered = st.session_state.get("selected_district")
+    frame = frame.copy()
+    frame["is_selected"] = (frame["district"] == remembered) if remembered else True
+
     map_col, rank_col = st.columns([3, 2])
     with map_col:
         st.markdown("**Risk map**")
-        chart = choropleth(
-            frame,
-            value_column="risk_level",
-            categorical=True,
-            tooltip_columns=[
-                ("q0.5", "Forecast cases", ".0f"),
-                ("incidence_per_100k", "Per 100,000", ".1f"),
-            ],
-            legend_title="Risk level",
-        )
+        st.caption("Click a district to jump to it in the Public portal's district lookup.")
+        chart = _risk_choropleth(frame, enable_click=True, highlight_column="is_selected")
         if chart is None:
             st.info("Map geometry unavailable — see the ranked list.", icon="🗺️")
         else:
             # No use_container_width -- geoshape needs a fixed pixel extent.
-            st.altair_chart(chart)
+            event = st.altair_chart(chart, on_select="rerun", key="national_risk_map")
+            clicked_id = _first_selected_value(
+                event.selection.get("district_click") if event and event.selection else None,
+                "properties.district_id",
+            )
+            if clicked_id:
+                clicked_name = DISTRICT_NAMES.get(clicked_id)
+                # `is_selected` above was already computed from the *previous*
+                # session_state value, so without an explicit rerun here the
+                # bars beside the map wouldn't pick up this click until some
+                # unrelated later interaction forced another pass -- the two
+                # charts would look out of sync for exactly one click.
+                if clicked_name and clicked_name != remembered:
+                    st.session_state["selected_district"] = clicked_name
+                    st.rerun()
 
         cols = st.columns(4)
         for col, level in zip(cols, RiskLevel, strict=False):
@@ -133,9 +224,17 @@ def national_overview(data: dict[str, pd.DataFrame], horizon: int) -> None:
 
     with rank_col:
         st.markdown("**Every district, ranked**")
-        st.caption("Shown in full regardless of the map above.")
+        st.caption(
+            "Shown in full regardless of the map above. Click a bar to jump to it "
+            "in the Public portal's district lookup."
+        )
         ranked = frame.sort_values("incidence_per_100k", ascending=False)
         colours = {level.value: level.colour for level in RiskLevel}
+        # This click param only captures the event (on_select="rerun" needs at
+        # least one param to fire on); the opacity below is driven by
+        # `is_selected`, the same shared column the map uses, not by `click`
+        # directly -- that's what keeps the two charts in sync.
+        click = alt.selection_point(name="district_pick", fields=["district"], empty=False)
         bars = (
             alt.Chart(ranked)
             .mark_bar(cornerRadiusEnd=3)
@@ -147,15 +246,26 @@ def national_overview(data: dict[str, pd.DataFrame], horizon: int) -> None:
                     scale=alt.Scale(domain=list(colours), range=list(colours.values())),
                     legend=None,
                 ),
+                opacity=alt.condition("datum.is_selected", alt.value(1.0), alt.value(0.55)),
                 tooltip=[
                     alt.Tooltip("district:N", title="District"),
                     alt.Tooltip("incidence_per_100k:Q", title="Per 100,000", format=".1f"),
                     alt.Tooltip("risk_level:N", title="Risk"),
                 ],
             )
+            .add_params(click)
             .properties(height=560)
         )
-        st.altair_chart(bars, use_container_width=True)
+        event = st.altair_chart(
+            bars, width="stretch", on_select="rerun", key="national_ranked_bars"
+        )
+        picked = _first_selected_value(
+            event.selection.get("district_pick") if event and event.selection else None,
+            "district",
+        )
+        if picked and picked != remembered:
+            st.session_state["selected_district"] = picked
+            st.rerun()
 
     st.divider()
     trend_col, rain_col = st.columns(2)
@@ -170,7 +280,7 @@ def national_overview(data: dict[str, pd.DataFrame], horizon: int) -> None:
             )
             st.altair_chart(
                 history_and_forecast_chart(national_history, national_forecast),
-                use_container_width=True,
+                width="stretch",
             )
             st.caption(
                 "Solid = observed. Dashed = forecast, summed across districts — a "
@@ -189,7 +299,7 @@ def national_overview(data: dict[str, pd.DataFrame], horizon: int) -> None:
                 .agg(cases=("cases", "sum"), rain_mm=("rain_mm", "mean"))
                 .reset_index()
             )
-            st.altair_chart(rainfall_vs_cases(national, height=280), use_container_width=True)
+            st.altair_chart(rainfall_vs_cases(national, height=280), width="stretch")
             st.caption(
                 "Cases follow rainfall by roughly 6–8 weeks: rain fills containers, "
                 "larvae develop, adult mosquitoes emerge, and only then does "
@@ -198,7 +308,7 @@ def national_overview(data: dict[str, pd.DataFrame], horizon: int) -> None:
 
     if national is not None and not national.empty:
         st.markdown("**Rainfall and cases, overlaid**")
-        st.altair_chart(rainfall_cases_overlay(national, height=260), use_container_width=True)
+        st.altair_chart(rainfall_cases_overlay(national, height=260), width="stretch")
         st.caption(
             "Same two series, one timeline — each normalised to its own 0–100 "
             "range so the lag is easy to eyeball. Not a magnitude comparison "
@@ -230,8 +340,23 @@ def public_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: 
 
     with tab_district:
         names = sorted(frame["district"].unique())
-        default = names.index("Colombo") if "Colombo" in names else 0
-        chosen = st.selectbox("Choose your district", names, index=default)
+        remembered = st.session_state.get("selected_district")
+        default_name = (
+            remembered if remembered in names else ("Colombo" if "Colombo" in names else names[0])
+        )
+        # Keying on the remembered district (rather than a fixed key) forces a
+        # fresh widget -- and therefore a fresh `index` -- exactly when a click
+        # on the National overview's ranked chart changes it. A fixed key
+        # would make Streamlit keep whatever the user last picked manually and
+        # ignore `index` on every subsequent rerun, which is the usual trap.
+        chosen = st.selectbox(
+            "Choose your district",
+            names,
+            index=names.index(default_name),
+            key=f"district_select_{default_name}",
+        )
+        if remembered:
+            st.caption(f"Jumped here from the National overview map: **{remembered}**.")
 
         match = [a for a in assessments if a.district_name == chosen]
         if match:
@@ -258,12 +383,10 @@ def public_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: 
             history = panel[panel["district_id"] == match[0].district_id]
             if not history.empty:
                 st.markdown("**Recent weekly cases**")
-                st.altair_chart(trend_chart(history), use_container_width=True)
+                st.altair_chart(trend_chart(history), width="stretch")
 
                 st.markdown(f"**Rainfall and cases in {chosen}, overlaid**")
-                st.altair_chart(
-                    rainfall_cases_overlay(history, height=240), use_container_width=True
-                )
+                st.altair_chart(rainfall_cases_overlay(history, height=240), width="stretch")
                 st.caption(
                     "Both series normalised to their own 0–100 range so the "
                     "rain-to-cases lag is easy to see for this district specifically."
@@ -334,23 +457,75 @@ def public_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: 
 def hospital_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: int) -> None:
     principal.require(Permission.VIEW_HOSPITAL_READINESS)
 
-    readiness_all = data.get("hospital_readiness")
-    if readiness_all is None or readiness_all.empty:
+    district_risk = data.get("district_risk")
+    capacity = data.get("district_capacity")
+    if district_risk is None or district_risk.empty or capacity is None or capacity.empty:
         st.warning("No readiness artifact. Run `make pipeline`.", icon="⚠️")
         return
 
-    readiness = readiness_all[readiness_all["horizon_weeks"] == horizon]
+    from dengue.platform.hospital import build_readiness_table, with_ratio_overrides
+
+    defaults = _HOSPITAL_DEFAULTS
+    # Reading these from session_state (rather than the st.slider() calls
+    # themselves, which live further down in tab_ratios) is what lets this
+    # section render *before* the sliders in the tab order while still
+    # reflecting whatever the user last set them to: Streamlit updates
+    # session_state for an existing widget key before the script reruns, so
+    # the value is already here by the time this line executes.
+    try:
+        live_ratios = with_ratio_overrides(
+            defaults,
+            hospitalisation_rate=st.session_state.get("ratio_hosp", defaults.hospitalisation_rate),
+            severe_fraction_of_admitted=st.session_state.get(
+                "ratio_sev", defaults.severe_fraction_of_admitted
+            ),
+            icu_fraction_of_admitted=st.session_state.get(
+                "ratio_icu", defaults.icu_fraction_of_admitted
+            ),
+            mean_length_of_stay_days=st.session_state.get(
+                "ratio_los", defaults.mean_length_of_stay_days
+            ),
+            platelet_units_per_severe_case=st.session_state.get(
+                "ratio_plt", defaults.platelet_units_per_severe_case
+            ),
+            nurses_per_occupied_bed=st.session_state.get(
+                "ratio_nurse", defaults.nurses_per_occupied_bed
+            ),
+        )
+        ratio_error = None
+    except ValueError as exc:
+        live_ratios = defaults
+        ratio_error = str(exc)
+    is_customised = live_ratios != defaults
+
+    # Cheap arithmetic over ~25 rows -- not a model refit or an ILP re-solve --
+    # so recomputing this on every rerun does not violate the app's
+    # no-compute-at-request-time rule the way retraining Stage 1 or
+    # re-solving Stage 3 would.
+    readiness = build_readiness_table(
+        district_risk, capacity, horizon_weeks=horizon, ratios=live_ratios
+    )
     readiness = filter_to_scope(readiness, principal)
 
     st.subheader("Hospital readiness")
     st.caption(f"Scope: {principal.scope_label()} · {horizon} weeks ahead")
 
+    if ratio_error:
+        st.error(
+            f"**Ratio combination is invalid** — {ratio_error} Showing the default "
+            "ratios below instead; adjust the sliders in **Planning ratios**.",
+            icon="⚠️",
+        )
     st.warning(
         "**Every figure on this page is a planning estimate, not a measurement.** "
         "No public source publishes Sri Lankan hospital occupancy, ICU census, "
         "platelet stock or staffing. These numbers apply published clinical ratios "
         "to the case forecast — the same arithmetic a planner would do on paper. "
-        "Adjust the ratios below to match your own case mix.",
+        + (
+            "Recomputed live from the ratios you set in **Planning ratios**."
+            if is_customised
+            else "Adjust the ratios in **Planning ratios** to match your own case mix."
+        ),
         icon="📋",
     )
 
@@ -381,7 +556,8 @@ def hospital_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon
             kpi_html(
                 "Additional nurses",
                 _fmt(totals.get("additional_nurses", 0)),
-                f"{provenance_badge(ProvenanceTier.ASSUMED)} at 1:4 ratio",
+                f"{provenance_badge(ProvenanceTier.ASSUMED)} at "
+                f"1:{round(1 / live_ratios.nurses_per_occupied_bed)} ratio",
             ),
         ]
     )
@@ -433,11 +609,15 @@ def hospital_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon
                 }
             ),
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
         )
         estimate_notice(
-            "55% hospitalisation rate, 6% severe, 2% ICU, 4-day mean stay. "
-            "Occupancy is against district beds estimated from World Bank national "
+            f"{live_ratios.hospitalisation_rate:.0%} hospitalisation rate, "
+            f"{live_ratios.severe_fraction_of_admitted:.0%} severe, "
+            f"{live_ratios.icu_fraction_of_admitted:.1%} ICU, "
+            f"{live_ratios.mean_length_of_stay_days:.0f}-day mean stay"
+            + (" (your ratios)." if is_customised else " (defaults).")
+            + " Occupancy is against district beds estimated from World Bank national "
             "bed density, assuming 15% are available for dengue."
         )
 
@@ -458,7 +638,7 @@ def hospital_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon
                 }
             ),
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
         )
         st.info(
             unavailable_reason("Current stock on hand"),
@@ -495,11 +675,13 @@ def hospital_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon
         st.markdown(
             "These are the assumptions behind every number on this page. They are "
             "**planning values from the literature for endemic settings**, not Sri "
-            "Lankan measurements. Change them to match your own case mix."
+            "Lankan measurements. Change them to match your own case mix — the "
+            "**Projected load** and **Supplies** tabs recompute live."
         )
-        from dengue.platform.hospital import ClinicalRatios
-
-        defaults = ClinicalRatios()
+        if is_customised:
+            st.button(
+                "Reset to defaults", on_click=lambda: st.session_state.update(_RATIO_DEFAULTS)
+            )
         c1, c2, c3 = st.columns(3)
         with c1:
             st.slider(
@@ -553,10 +735,10 @@ def hospital_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon
                 key="ratio_nurse",
             )
         st.caption(
-            "Changing these here does not rewrite the cached artifact — the pipeline "
-            "computes the table. Wiring these controls through to a re-run is "
-            "deliberate future work, not an oversight: it would mean computing at "
-            "request time."
+            "These ratios recompute the readiness table above on every change. They "
+            "do not touch the Stage 1 forecast or Stage 3 allocation — only the "
+            "clinical-ratio arithmetic applied on top of it, so this stays well "
+            "short of the app's rule against recomputing a model at request time."
         )
 
 
@@ -587,16 +769,7 @@ def moh_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: int
     )
 
     with tab_ops:
-        chart = choropleth(
-            frame,
-            value_column="risk_level",
-            categorical=True,
-            tooltip_columns=[
-                ("q0.5", "Forecast cases", ".0f"),
-                ("incidence_per_100k", "Per 100,000", ".1f"),
-            ],
-            legend_title="Risk level",
-        )
+        chart = _risk_choropleth(frame)
         if chart is not None:
             # No use_container_width -- geoshape needs a fixed pixel extent.
             st.altair_chart(chart)
@@ -657,7 +830,7 @@ def moh_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: int
                         tooltip=["district:N", "team_weeks:Q"],
                     )
                     .properties(height=max(200, 30 * len(plan))),
-                    use_container_width=True,
+                    width="stretch",
                 )
 
     with tab_plan:
@@ -700,7 +873,7 @@ def moh_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: int
                         }
                     )
             if rows:
-                st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+                st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
             else:
                 st.info("No activity scheduled for your districts at this budget.", icon="ℹ️")
 
@@ -741,7 +914,7 @@ def moh_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: int
                         ],
                     )
                     .properties(height=280),
-                    use_container_width=True,
+                    width="stretch",
                 )
                 st.caption(
                     "Each scenario re-integrates the fitted SEI-SIR model with a "
@@ -789,7 +962,7 @@ def moh_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: int
                         ],
                     )
                     .properties(height=300),
-                    use_container_width=True,
+                    width="stretch",
                 )
             with c2:
                 # See the hospital readiness table for why this formats values
@@ -807,7 +980,7 @@ def moh_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: int
                         }
                     ),
                     hide_index=True,
-                    use_container_width=True,
+                    width="stretch",
                 )
             st.warning(
                 "**Only the vector-control curve is anchored to a model.** The other "
@@ -886,7 +1059,7 @@ def admin_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: i
                 ]
             ),
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
         )
 
     with tab_data:
@@ -905,7 +1078,7 @@ def admin_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: i
                 ]
             ),
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
         )
         st.info(
             "The **Planning estimate** tier is the one to watch. Those numbers apply "
@@ -927,7 +1100,7 @@ def admin_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: i
                     index=["model", "horizon"], columns="metric", values="value", observed=True
                 ).reset_index(),
                 hide_index=True,
-                use_container_width=True,
+                width="stretch",
             )
         st.markdown("**Configuration**")
         c1, c2 = st.columns(2)
@@ -964,7 +1137,7 @@ def admin_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: i
                 ]
             ),
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
         )
         with st.expander("Full permission matrix"):
             rows = []
@@ -975,7 +1148,7 @@ def admin_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: i
                 for r in Role:
                     entry[r.label] = "✓" if perm in ROLE_PERMISSIONS[r] else ""
                 rows.append(entry)
-            st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+            st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
         st.info(
             "**No authentication backend is connected.** The role switcher in the "
             "sidebar is a demonstration of the access model, not a login. Production "

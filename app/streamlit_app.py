@@ -183,6 +183,16 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+if is_synthetic:
+    # Stays up top, unlike the real-data confirmation below: a fabricated-data
+    # caveat needs to be seen before anything else on the page, not discovered
+    # after scrolling past figures that already look real.
+    st.error(
+        "**Simulated data.** This run used the synthetic panel — realistic dynamics, "
+        "but not observations. Do not read any figure here as real epidemiology. "
+        "Run `make panel && make pipeline` against real sources for live figures.",
+        icon="🔬",
+    )
 # --------------------------------------------------------------------------
 # National overview -- identical for every role, before anything role-scoped
 # --------------------------------------------------------------------------
@@ -210,6 +220,21 @@ except PermissionError as exc:
     st.error(f"**Access denied.** {exc}", icon="🔒")
 
 st.divider()
+
+if not is_synthetic and meta is not None and not meta.empty:
+    # The synthetic case gets a loud warning at the very top of the page,
+    # since that caveat has to be seen before anything else; the real-data
+    # case is a quieter confirmation and belongs down here instead, after
+    # everything it's vouching for has already been read.
+    row = meta.iloc[0]
+    st.success(
+        f"**Real data.** Panel: `{row['panel_rows']:,}` rows, "
+        f"`{row['n_districts']}` districts, `{row['panel_start']}` → `{row['panel_end']}`. "
+        "Sourced from the Epidemiology Unit WER reports and Open-Meteo — see "
+        "**Data sources** in the National administrator portal for full provenance.",
+        icon="✅",
+    )
+
 st.caption(
     "Boundaries: OCHA/HDX (CC-BY-IGO) · Facilities: © OpenStreetMap contributors "
     "(ODbL) · Weather: Open-Meteo/ERA5 (CC-BY) · Bed density: World Bank (CC-BY) · "
