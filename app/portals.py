@@ -24,7 +24,7 @@ from components import (
     risk_pill,
     trend_chart,
 )
-from theme import CATEGORICAL, kpi_html
+from theme import CATEGORICAL, PAGE, kpi_html
 
 from dengue import config
 from dengue.platform.hospital import ClinicalRatios
@@ -947,7 +947,7 @@ def moh_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: int
             with c1:
                 st.altair_chart(
                     alt.Chart(split)
-                    .mark_arc(innerRadius=60, stroke="#fcfcfb", strokeWidth=2)
+                    .mark_arc(innerRadius=60, stroke=PAGE, strokeWidth=2)
                     .encode(
                         theta=alt.Theta("amount_lkr:Q"),
                         color=alt.Color(

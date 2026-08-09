@@ -41,6 +41,7 @@ from portals import (
     national_overview,
     public_portal,
 )
+from report import build_report_pdf
 from theme import PAGE_CSS, app_header, register_theme
 
 from dengue import config
@@ -239,4 +240,55 @@ st.caption(
     "Boundaries: OCHA/HDX (CC-BY-IGO) · Facilities: © OpenStreetMap contributors "
     "(ODbL) · Weather: Open-Meteo/ERA5 (CC-BY) · Bed density: World Bank (CC-BY) · "
     "Cases: colmozzie (CC0) / Epidemiology Unit, Sri Lanka"
+)
+
+# --------------------------------------------------------------------------
+# Report download -- always last on the page
+# --------------------------------------------------------------------------
+
+
+@st.cache_data(show_spinner=False)
+def _cached_report_pdf(
+    district_risk: pd.DataFrame,
+    horizon: int,
+    role_label: str,
+    scope_label: str,
+    is_synthetic: bool,
+    meta_row: pd.Series | None,
+) -> bytes:
+    # Cached on its actual inputs (not just "always regenerate") so that
+    # moving a slider in an unrelated portal further up the page -- which
+    # reruns this whole script, same as any Streamlit interaction -- doesn't
+    # silently re-render a PDF nobody asked for on every rerun.
+    return build_report_pdf(
+        district_risk,
+        horizon=horizon,
+        role_label=role_label,
+        scope_label=scope_label,
+        is_synthetic=is_synthetic,
+        pipeline_meta_row=meta_row,
+    )
+
+
+st.divider()
+st.markdown("**Report**")
+st.caption(
+    "A PDF snapshot of the National overview above: the same KPI summary and "
+    "ranked district table, with the same data-source caveat, for sharing "
+    "outside the dashboard."
+)
+report_bytes = _cached_report_pdf(
+    data["district_risk"],
+    horizon,
+    role.label,
+    principal.scope_label(),
+    is_synthetic,
+    meta.iloc[0] if meta is not None and not meta.empty else None,
+)
+st.download_button(
+    "Download report (PDF)",
+    data=report_bytes,
+    file_name=f"denguesentinel-national-overview-{horizon}w.pdf",
+    mime="application/pdf",
+    icon="📄",
 )

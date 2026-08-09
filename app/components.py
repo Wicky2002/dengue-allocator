@@ -12,7 +12,7 @@ from typing import Any
 import altair as alt
 import pandas as pd
 import streamlit as st
-from theme import BASELINE, CATEGORICAL, INK_MUTED, SEQUENTIAL_BLUE, STATUS
+from theme import BASELINE, CATEGORICAL, INK_MUTED, PAGE, SEQUENTIAL_BLUE, STATUS
 
 from dengue.platform.provenance import ProvenanceTier
 from dengue.platform.risk import RiskLevel
@@ -219,7 +219,7 @@ def choropleth(
     # -- required to avoid Streamlit's Arrow serialisation of the geometry.
     chart = (
         alt.Chart(geo_source)
-        .mark_geoshape(stroke="#fcfcfb", strokeWidth=0.8)
+        .mark_geoshape(stroke=PAGE, strokeWidth=0.8)
         .transform_lookup(
             lookup="properties.district_id",
             from_=alt.LookupData(values, key="district_id", fields=lookup_fields),
@@ -571,7 +571,7 @@ def facility_map(facilities: pd.DataFrame, height: int = 520, width: int = 620) 
 
     points = (
         alt.Chart(facilities)
-        .mark_circle(opacity=0.75, stroke="#fcfcfb", strokeWidth=0.5)
+        .mark_circle(opacity=0.75, stroke=PAGE, strokeWidth=0.5)
         .encode(
             longitude="lon:Q",
             latitude="lat:Q",

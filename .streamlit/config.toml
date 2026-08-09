@@ -11,8 +11,13 @@
 [theme]
 base = "light"
 primaryColor = "#2a78d6"
-backgroundColor = "#fcfcfb"
-secondaryBackgroundColor = "#f9f9f7"
+# Deepened from #fcfcfb / #f9f9f7 -- those two were only 3 points apart, so
+# white cards on the page background barely registered as separate surfaces
+# and the whole app read as one flat white canvas. backgroundColor now
+# matches theme.py's PAGE token and secondaryBackgroundColor matches SIDEBAR,
+# giving three visible depth tiers: sidebar > page > white card.
+backgroundColor = "#eeece2"
+secondaryBackgroundColor = "#e5e2d4"
 textColor = "#0b0b0b"
 font = "sans serif"
 

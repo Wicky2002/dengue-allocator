@@ -51,8 +51,17 @@ STATUS = {
 }
 
 # --- chrome & ink ---------------------------------------------------------
-SURFACE = "#fcfcfb"
-PAGE = "#f9f9f7"
+# SURFACE and PAGE used to be 3 points apart (#fcfcfb / #f9f9f7) -- close
+# enough that white cards on the page background barely registered as
+# separate surfaces, and the whole app read as one flat white canvas.
+# SURFACE is now true white so cards visibly pop; PAGE and SIDEBAR are two
+# deliberately distinct warm-neutral tiers (page background vs. the sidebar
+# column) so there is real depth: sidebar > page > card, darkest to lightest.
+# The warm-gray undertone matches GRIDLINE/BASELINE below rather than a cool
+# gray, so it reads as one family rather than a mismatched patch.
+SURFACE = "#ffffff"
+PAGE = "#eeece2"
+SIDEBAR = "#e5e2d4"
 INK_PRIMARY = "#0b0b0b"
 INK_SECONDARY = "#52514e"
 INK_MUTED = "#898781"
@@ -129,6 +138,7 @@ PAGE_CSS = f"""
   :root {{
     --surface: {SURFACE};
     --page: {PAGE};
+    --sidebar: {SIDEBAR};
     --ink-1: {INK_PRIMARY};
     --ink-2: {INK_SECONDARY};
     --ink-3: {INK_MUTED};
@@ -183,8 +193,12 @@ PAGE_CSS = f"""
     line-height: 1.1;
   }}
   .kpi-sub {{ font-size: 11.5px; color: var(--ink-2); margin-top: 5px; }}
-  .kpi-accent {{ border-left: 3px solid var(--series-1); }}
-  .kpi-critical {{ border-left: 3px solid var(--critical); }}
+  /* Background is a light tint of the same colour as the left border, rather
+     than plain white -- a solid-white card with only a thin coloured edge
+     reads as barely tinted at a glance; a tinted fill makes the accent/
+     critical distinction visible without reading the border. */
+  .kpi-accent {{ border-left: 3px solid var(--series-1); background: rgba(42,120,214,0.07); }}
+  .kpi-critical {{ border-left: 3px solid var(--critical); background: rgba(208,59,59,0.07); }}
 
   .stage-pill {{
     display: inline-block;
@@ -198,7 +212,7 @@ PAGE_CSS = f"""
   }}
 
   section[data-testid="stSidebar"] {{ border-right: 1px solid var(--hairline); }}
-  section[data-testid="stSidebar"] > div {{ background: var(--page); }}
+  section[data-testid="stSidebar"] > div {{ background: var(--sidebar); }}
 
   /* Tabs: recessive by default, on-brand underline when active -- the
      default Streamlit look uses its own red-orange accent here regardless of
