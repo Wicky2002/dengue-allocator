@@ -610,6 +610,20 @@ LP relaxation's dual on the budget constraint. It falls monotonically from 4.93 
 > so the margin above comes from allocation logic alone. There is a regression test
 > pinning this (`test_greedy_honours_the_high_risk_floor`).
 
+**The high-risk floor is not case-count-only.** A district also qualifies if it is
+among the bottom `DEFAULT_FACILITY_POOR_K` (default 6) nationally by real OSM-observed
+facilities per 100,000 population — see `facility_poor_districts()` in
+`ingest/health_facilities.py`, wired in by `pipeline.py::main()` before Stage 3 runs.
+The two criteria are a genuine union, not a proxy for each other: on the real panel's
+latest week, the case-flagged set was `{mannar, galle, ratnapura, matale, kilinochchi,
+kalutara}` and the facility-poor set was `{hambantota, puttalam, kurunegala,
+monaragala, anuradhapura, ratnapura}` — only `ratnapura` in both, meaning five
+districts now get a guaranteed minimum allocation purely because the local health
+system has little capacity to absorb an outbreak, not because one is forecast yet.
+This is the platform's other lever against SDG 10 (Reduced Inequalities), beyond the
+budget floor itself: it stops attention from concentrating only where cases already
+are.
+
 ---
 
 ## Repository layout

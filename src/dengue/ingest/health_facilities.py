@@ -304,6 +304,24 @@ def build_district_capacity(
     return frame
 
 
+def facility_poor_districts(capacity: pd.DataFrame, *, bottom_k: int = 6) -> tuple[str, ...]:
+    """District IDs with the least facility coverage relative to population.
+
+    Raw ``n_facilities`` favours high-population districts, which naturally
+    host more facilities -- dividing by population turns it into a density
+    comparable across districts of very different size. The bottom-``k`` by
+    that density are the districts where an outbreak would find the least
+    existing capacity to absorb it, independent of whether they are currently
+    case-flagged high-risk. Intended to feed Stage 3's allocation floor
+    alongside (not instead of) the case-based high-risk flag -- see
+    :func:`dengue.pipeline.main`.
+    """
+    working = capacity[["district_id", "n_facilities", "population"]].copy()
+    working["facilities_per_100k"] = working["n_facilities"] / working["population"] * 100_000.0
+    poorest = working.nsmallest(bottom_k, "facilities_per_100k")
+    return tuple(poorest["district_id"].astype(str))
+
+
 def load(*, refresh: bool = False) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Fetch facilities and build the district capacity estimate.
 

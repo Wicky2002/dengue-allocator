@@ -51,6 +51,11 @@ DEFAULT_BUDGETS = tuple(range(10, 161, 10))
 #: How many districts the NDCU designates high-risk in the app's default view.
 DEFAULT_TOP_K_HIGH_RISK = 6
 
+#: How many districts qualify for the allocation floor by facility scarcity
+#: alone (see ``facility_poor_districts``), independent of case count. Matched
+#: to DEFAULT_TOP_K_HIGH_RISK so neither criterion structurally dominates.
+DEFAULT_FACILITY_POOR_K = 6
+
 
 def run_stage1(panel: pd.DataFrame, *, horizons: tuple[int, ...] = config.HORIZONS) -> pd.DataFrame:
     """Fit the best Stage 1 model on all history and forecast from the last week.
@@ -233,6 +238,9 @@ def run_platform_layer(
     district_risk: pd.DataFrame,
     effect_table: pd.DataFrame,
     parameters: dict | None = None,
+    *,
+    facilities: pd.DataFrame | None = None,
+    capacity: pd.DataFrame | None = None,
 ) -> dict[str, pd.DataFrame]:
     """Build the role-facing artifacts: capacity, readiness, scenarios, budget.
 
@@ -240,6 +248,11 @@ def run_platform_layer(
     outputs. Failures here are logged and skipped rather than aborting the run:
     the epidemiological stages are the load-bearing part, and a missing
     readiness table should not cost you the forecast.
+
+    ``facilities``/``capacity``, if already fetched by the caller (``main``
+    needs them *before* Stage 3 now, to feed the allocation floor), are reused
+    here rather than fetched a second time -- avoiding a duplicate Overpass
+    round-trip. Passing neither preserves the old fetch-it-here behaviour.
     """
     from dengue.optim.budget import budget_sweep
     from dengue.platform.hospital import build_readiness_table
@@ -247,20 +260,20 @@ def run_platform_layer(
     out: dict[str, pd.DataFrame] = {}
 
     # --- health facilities and estimated bed capacity ---
-    try:
-        from dengue.ingest.health_facilities import build_district_capacity, load
+    if capacity is None:
+        try:
+            from dengue.ingest.health_facilities import build_district_capacity, load
 
-        facilities, capacity = load()
-        out["health_facilities"] = facilities
-        out["district_capacity"] = capacity
-        log.info("pipeline/platform: capacity for %d districts", len(capacity))
-    except Exception as exc:
-        log.error("pipeline/platform: facility ingest failed (%s)", exc)
-        from dengue.ingest.health_facilities import build_district_capacity
+            facilities, capacity = load()
+            log.info("pipeline/platform: capacity for %d districts", len(capacity))
+        except Exception as exc:
+            log.error("pipeline/platform: facility ingest failed (%s)", exc)
+            from dengue.ingest.health_facilities import build_district_capacity
 
-        # Bed density is the load-bearing input; locations are a nice-to-have.
-        capacity = build_district_capacity(None, beds_per_1000=3.93)
-        out["district_capacity"] = capacity
+            # Bed density is the load-bearing input; locations are a nice-to-have.
+            capacity = build_district_capacity(None, beds_per_1000=3.93)
+    out["health_facilities"] = facilities if facilities is not None else pd.DataFrame()
+    out["district_capacity"] = capacity
 
     # --- hospital readiness, per horizon ---
     try:
@@ -357,12 +370,50 @@ def main(argv: list[str] | None = None) -> dict[str, pd.DataFrame]:
     forecasts = run_stage1(panel)
     district_risk = build_district_risk(forecasts, panel)
 
-    high_risk_districts = tuple(
+    case_high_risk = tuple(
         district_risk[(district_risk["high_risk"]) & (district_risk["horizon"] == 2)][
             "district_id"
         ].astype(str)
     )
-    log.info("pipeline: high-risk districts (h=2): %s", list(high_risk_districts))
+    log.info("pipeline: case-flagged high-risk districts (h=2): %s", list(case_high_risk))
+
+    # --- health facilities and estimated bed capacity -------------------
+    # Fetched here, before Stage 3, so facility-scarce districts can also
+    # qualify for the allocation floor below -- not just districts flagged
+    # high-risk by case count. Passed through to the platform layer further
+    # down so it is not fetched a second time.
+    try:
+        from dengue.ingest.health_facilities import (
+            build_district_capacity,
+            facility_poor_districts,
+            load,
+        )
+
+        facilities, capacity = load()
+    except Exception as exc:
+        log.error("pipeline: facility ingest failed (%s)", exc)
+        from dengue.ingest.health_facilities import build_district_capacity, facility_poor_districts
+
+        facilities = pd.DataFrame()
+        # Bed density is the load-bearing input; locations are a nice-to-have.
+        capacity = build_district_capacity(None, beds_per_1000=3.93)
+
+    facility_poor = facility_poor_districts(capacity, bottom_k=DEFAULT_FACILITY_POOR_K)
+    log.info(
+        "pipeline: facility-poor districts (bottom %d by facilities/100k): %s",
+        DEFAULT_FACILITY_POOR_K,
+        list(facility_poor),
+    )
+
+    # Union, not intersection: either condition is a legitimate reason to
+    # guarantee a district vector-control coverage, and they are expected to
+    # pick out different districts -- one is about where cases already are,
+    # the other about where the health system is least equipped to absorb
+    # them if cases arrive. de-duplicated via dict.fromkeys to preserve order.
+    high_risk_districts = tuple(dict.fromkeys((*case_high_risk, *facility_poor)))
+    log.info(
+        "pipeline: high-risk districts for allocation floor (union): %s", list(high_risk_districts)
+    )
 
     # ---- Stage 2 ------------------------------------------------------
     effect_path = config.ARTIFACTS_DIR / "effect_table.parquet"
@@ -399,7 +450,9 @@ def main(argv: list[str] | None = None) -> dict[str, pd.DataFrame]:
     )
 
     # ---- Stage 4: platform layer --------------------------------------
-    platform_artifacts = run_platform_layer(panel, district_risk, effect_table, parameters)
+    platform_artifacts = run_platform_layer(
+        panel, district_risk, effect_table, parameters, facilities=facilities, capacity=capacity
+    )
 
     # ---- artifacts ----------------------------------------------------
     recent_weeks = sorted(panel["iso_week"].unique())[-104:]
