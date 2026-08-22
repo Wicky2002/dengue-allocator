@@ -41,6 +41,7 @@ from portals import (
     national_overview,
     public_portal,
 )
+from report import build_report_pdf
 from theme import PAGE_CSS, app_header, register_theme
 
 from dengue import config
@@ -95,16 +96,19 @@ def load_all() -> dict[str, pd.DataFrame]:
 data = load_all()
 
 if "district_risk" not in data:
-    # Deliberate, one-time exception to "the app never computes": a fresh
-    # deploy (e.g. Streamlit Community Cloud's cold start) has no committed
-    # artifacts/ -- data/ and artifacts/ are gitignored, matching this
-    # project's rule that no case data is ever committed. Rather than a dead
-    # "build them first" page a judge can't act on, build the offline
-    # synthetic demo pipeline once, right here. This fires at most once per
-    # container lifetime (every rerun after finds real files on disk and
-    # skips straight to `load_all()` above) -- it is not a per-request
-    # compute path, so it does not violate the invariant it looks like it's
-    # bending.
+    # Deliberate, one-time exception to "the app never computes": a checkout
+    # with no artifacts/ on disk would otherwise render a dead "build them
+    # first" page that a judge or reviewer can't act on, so build the
+    # offline synthetic demo pipeline once, right here.
+    #
+    # The hosted deployment does NOT normally reach this branch: the
+    # dashboard artifacts are committed (see the exception block in
+    # .gitignore), so a fresh clone already has real figures. This is the
+    # fallback for a checkout whose artifacts were cleaned, or a fork that
+    # dropped them -- and it fires at most once per container lifetime
+    # (every rerun after finds real files on disk and skips straight to
+    # `load_all()` above), so it is not a per-request compute path and does
+    # not violate the invariant it looks like it's bending.
     st.title("DengueSentinel — Sri Lanka")
     try:
         with st.spinner(
@@ -183,6 +187,16 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+if is_synthetic:
+    # Stays up top, unlike the real-data confirmation below: a fabricated-data
+    # caveat needs to be seen before anything else on the page, not discovered
+    # after scrolling past figures that already look real.
+    st.error(
+        "**Simulated data.** This run used the synthetic panel — realistic dynamics, "
+        "but not observations. Do not read any figure here as real epidemiology. "
+        "Run `make panel && make pipeline` against real sources for live figures.",
+        icon="🔬",
+    )
 # --------------------------------------------------------------------------
 # National overview -- identical for every role, before anything role-scoped
 # --------------------------------------------------------------------------
@@ -210,8 +224,74 @@ except PermissionError as exc:
     st.error(f"**Access denied.** {exc}", icon="🔒")
 
 st.divider()
+
+if not is_synthetic and meta is not None and not meta.empty:
+    # The synthetic case gets a loud warning at the very top of the page,
+    # since that caveat has to be seen before anything else; the real-data
+    # case is a quieter confirmation and belongs down here instead, after
+    # everything it's vouching for has already been read.
+    row = meta.iloc[0]
+    st.success(
+        f"**Real data.** Panel: `{row['panel_rows']:,}` rows, "
+        f"`{row['n_districts']}` districts, `{row['panel_start']}` → `{row['panel_end']}`. "
+        "Sourced from the Epidemiology Unit WER reports and Open-Meteo — see "
+        "**Data sources** in the National administrator portal for full provenance.",
+        icon="✅",
+    )
+
 st.caption(
     "Boundaries: OCHA/HDX (CC-BY-IGO) · Facilities: © OpenStreetMap contributors "
     "(ODbL) · Weather: Open-Meteo/ERA5 (CC-BY) · Bed density: World Bank (CC-BY) · "
     "Cases: colmozzie (CC0) / Epidemiology Unit, Sri Lanka"
+)
+
+# --------------------------------------------------------------------------
+# Report download -- always last on the page
+# --------------------------------------------------------------------------
+
+
+@st.cache_data(show_spinner=False)
+def _cached_report_pdf(
+    district_risk: pd.DataFrame,
+    horizon: int,
+    role_label: str,
+    scope_label: str,
+    is_synthetic: bool,
+    meta_row: pd.Series | None,
+) -> bytes:
+    # Cached on its actual inputs (not just "always regenerate") so that
+    # moving a slider in an unrelated portal further up the page -- which
+    # reruns this whole script, same as any Streamlit interaction -- doesn't
+    # silently re-render a PDF nobody asked for on every rerun.
+    return build_report_pdf(
+        district_risk,
+        horizon=horizon,
+        role_label=role_label,
+        scope_label=scope_label,
+        is_synthetic=is_synthetic,
+        pipeline_meta_row=meta_row,
+    )
+
+
+st.divider()
+st.markdown("**Report**")
+st.caption(
+    "A PDF snapshot of the National overview above: the same KPI summary and "
+    "ranked district table, with the same data-source caveat, for sharing "
+    "outside the dashboard."
+)
+report_bytes = _cached_report_pdf(
+    data["district_risk"],
+    horizon,
+    role.label,
+    principal.scope_label(),
+    is_synthetic,
+    meta.iloc[0] if meta is not None and not meta.empty else None,
+)
+st.download_button(
+    "Download report (PDF)",
+    data=report_bytes,
+    file_name=f"denguesentinel-national-overview-{horizon}w.pdf",
+    mime="application/pdf",
+    icon="📄",
 )

@@ -51,8 +51,17 @@ STATUS = {
 }
 
 # --- chrome & ink ---------------------------------------------------------
-SURFACE = "#fcfcfb"
-PAGE = "#f9f9f7"
+# SURFACE and PAGE used to be 3 points apart (#fcfcfb / #f9f9f7) -- close
+# enough that white cards on the page background barely registered as
+# separate surfaces, and the whole app read as one flat white canvas.
+# SURFACE is now true white so cards visibly pop; PAGE and SIDEBAR are two
+# deliberately distinct warm-neutral tiers (page background vs. the sidebar
+# column) so there is real depth: sidebar > page > card, darkest to lightest.
+# The warm-gray undertone matches GRIDLINE/BASELINE below rather than a cool
+# gray, so it reads as one family rather than a mismatched patch.
+SURFACE = "#ffffff"
+PAGE = "#eeece2"
+SIDEBAR = "#e5e2d4"
 INK_PRIMARY = "#0b0b0b"
 INK_SECONDARY = "#52514e"
 INK_MUTED = "#898781"
@@ -129,6 +138,7 @@ PAGE_CSS = f"""
   :root {{
     --surface: {SURFACE};
     --page: {PAGE};
+    --sidebar: {SIDEBAR};
     --ink-1: {INK_PRIMARY};
     --ink-2: {INK_SECONDARY};
     --ink-3: {INK_MUTED};
@@ -139,7 +149,22 @@ PAGE_CSS = f"""
     --warning: {STATUS["warning"]};
   }}
 
-  .block-container {{ padding-top: 2.2rem; max-width: 1400px; }}
+  /* Horizontal padding is pinned to a fixed value here (rather than left at
+     whatever Streamlit's internal responsive default is) specifically so the
+     header bar below can cancel it out exactly via matching negative
+     margins -- Streamlit computes that default at runtime via CSS-in-JS with
+     no fixed value exposed in its static CSS, so bleeding the bar to the
+     true edge is only reliable against a padding value we set ourselves.
+     Top padding is kept small but nonzero (rather than cancelled to 0 the
+     same way) so the header bar doesn't collide with Streamlit's own fixed
+     toolbar -- the sidebar-collapse arrow and hamburger menu float above the
+     page at a height this stylesheet has no reliable way to read. */
+  .block-container {{
+    padding-top: 1rem;
+    padding-left: 2rem;
+    padding-right: 2rem;
+    max-width: 1400px;
+  }}
 
   /* KPI tiles */
   .kpi-row {{
@@ -168,8 +193,12 @@ PAGE_CSS = f"""
     line-height: 1.1;
   }}
   .kpi-sub {{ font-size: 11.5px; color: var(--ink-2); margin-top: 5px; }}
-  .kpi-accent {{ border-left: 3px solid var(--series-1); }}
-  .kpi-critical {{ border-left: 3px solid var(--critical); }}
+  /* Background is a light tint of the same colour as the left border, rather
+     than plain white -- a solid-white card with only a thin coloured edge
+     reads as barely tinted at a glance; a tinted fill makes the accent/
+     critical distinction visible without reading the border. */
+  .kpi-accent {{ border-left: 3px solid var(--series-1); background: rgba(42,120,214,0.07); }}
+  .kpi-critical {{ border-left: 3px solid var(--critical); background: rgba(208,59,59,0.07); }}
 
   .stage-pill {{
     display: inline-block;
@@ -183,7 +212,7 @@ PAGE_CSS = f"""
   }}
 
   section[data-testid="stSidebar"] {{ border-right: 1px solid var(--hairline); }}
-  section[data-testid="stSidebar"] > div {{ background: var(--page); }}
+  section[data-testid="stSidebar"] > div {{ background: var(--sidebar); }}
 
   /* Tabs: recessive by default, on-brand underline when active -- the
      default Streamlit look uses its own red-orange accent here regardless of
@@ -238,21 +267,56 @@ PAGE_CSS = f"""
   /* Slider handle/track on brand. */
   div[data-testid="stSlider"] [role="slider"] {{ background-color: var(--series-1); }}
 
-  /* Product header (see app_header() in streamlit_app.py). */
+  /* Product header (see app_header() in streamlit_app.py) -- a full-bleed
+     coloured bar flush with the top and both edges of the content column,
+     not a floating rounded card, so the app reads as branded from the first
+     pixel rather than blending into Streamlit's default page chrome above
+     the fold. The negative margins exactly cancel the fixed padding set on
+     .block-container above (0 top / 2rem sides) -- that's what lets this
+     reach the true top and side edges regardless of Streamlit's own
+     (otherwise unknown) responsive padding, since we pinned it ourselves.
+     Stays within the content column rather than bleeding under the sidebar:
+     .block-container's parent already excludes the sidebar's width in both
+     expanded and collapsed states, so there is no viewport-relative (100vw)
+     math here that a sidebar could throw off. */
+  .app-header-bar {{
+    background: linear-gradient(120deg, {CATEGORICAL[0]} 0%, #1c5cab 100%);
+    border-radius: 0;
+    width: calc(100% + 4rem);
+    padding: 26px 2rem 22px;
+    margin: 0 -2rem 20px -2rem;
+    box-shadow: 0 1px 2px rgba(11,11,11,0.08);
+  }}
   .app-header {{
     display: flex;
     align-items: baseline;
     gap: 12px;
     margin-bottom: 2px;
   }}
-  .app-header .mark {{ font-size: 26px; line-height: 1; }}
+  /* line-height must leave headroom above the cap line: emoji glyphs render
+     TALLER than their em box (Segoe UI Emoji especially), so `line-height: 1`
+     on the 26px mark gave it a 26px line box the glyph overflowed, and the
+     overflow -- which the bar's top padding does not account for -- read as
+     the mosquito being clipped by the top edge of the header bar. Both mark
+     and title share the same value so baseline alignment stays predictable. */
+  .app-header .mark {{
+    font-size: 26px;
+    line-height: 1.3;
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.18));
+  }}
   .app-header .title {{
     font-size: 24px;
+    line-height: 1.3;
     font-weight: 700;
-    color: var(--ink-1);
+    color: #ffffff;
     letter-spacing: -.01em;
   }}
-  .app-meta {{ font-size: 12.5px; color: var(--ink-3); margin-top: 2px; }}
+  .app-header-sub {{
+    font-size: 13px;
+    color: rgba(255,255,255,0.92);
+    margin-top: 2px;
+  }}
+  .app-meta {{ font-size: 12.5px; color: rgba(255,255,255,0.72); margin-top: 4px; }}
 
   /* This is a demo dashboard, not a deployed Streamlit Cloud app -- the
      "Deploy" affordance is noise; [client].toolbarMode = "minimal" in
@@ -276,19 +340,22 @@ def kpi_html(label: str, value: str, sub: str = "", accent: str = "accent") -> s
 
 
 def app_header(title: str, subtitle: str, meta: str = "") -> str:
-    """Product-style page header: mark + title + subtitle, small meta line.
+    """Product-style page header: a full-width coloured bar with mark, title,
+    subtitle, and a small meta line.
 
     Replaces a plain ``st.title()`` / ``st.caption()`` stack, which is what
-    every default Streamlit app looks like. Reuses the same design tokens as
-    the KPI tiles so the header reads as part of one system rather than a
-    Streamlit default sitting above custom components.
+    every default Streamlit app looks like. A solid brand-gradient band is
+    what actually reads as "branded" above the fold -- coloured title text
+    alone still sits on the same white page as everything else and gets lost.
     """
     meta_html = f'<div class="app-meta">{meta}</div>' if meta else ""
     return (
+        '<div class="app-header-bar">'
         '<div class="app-header">'
         '<span class="mark">🦟</span>'
         f'<span class="title">{title}</span>'
         "</div>"
-        f'<div class="kpi-sub" style="margin-top:2px;">{subtitle}</div>'
+        f'<div class="app-header-sub">{subtitle}</div>'
         f"{meta_html}"
+        "</div>"
     )
