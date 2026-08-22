@@ -45,7 +45,7 @@ from report import build_report_pdf
 from theme import PAGE_CSS, app_header, register_theme
 
 from dengue import config
-from dengue.platform.rbac import DEMO_PRINCIPALS, Role
+from dengue.platform.rbac import DEMO_PRINCIPALS, Principal, Role
 
 st.set_page_config(
     page_title="DengueSentinel — Sri Lanka",
@@ -147,6 +147,37 @@ with st.sidebar:
     role = st.radio("Role", list(Role), format_func=lambda r: r.label, label_visibility="collapsed")
     principal = DEMO_PRINCIPALS[role]
     st.caption(principal.role.description)
+
+    if role in (Role.HOSPITAL_STAFF, Role.MOH_OFFICER):
+        # HOSPITAL_STAFF and MOH_OFFICER are scoped to specific districts by
+        # design (see Principal.__post_init__ -- an empty district list would
+        # mean nationwide access, which these roles must not have). The demo
+        # principals above hardcode one example scope each (Colombo; Gampaha
+        # + Colombo) so a fresh switch to the role shows *something* -- but
+        # with no real accounts behind this switcher, letting the viewer pick
+        # which districts that scope covers is what makes every district
+        # reachable through the demo rather than just the two hardcoded ones.
+        names_by_id = {d.district_id: d.name for d in config.DISTRICTS}
+        ids_by_name = {v: k for k, v in names_by_id.items()}
+        all_names = sorted(names_by_id.values())
+        default_names = [names_by_id[d] for d in principal.districts]
+
+        if role is Role.HOSPITAL_STAFF:
+            chosen_name = st.selectbox(
+                "District",
+                all_names,
+                index=all_names.index(default_names[0]) if default_names else 0,
+            )
+            chosen_ids = (ids_by_name[chosen_name],)
+            # scope_label() already appends the district name(s) after the
+            # facility string, so the facility itself must not repeat it.
+            facility = principal.facility if chosen_ids == principal.districts else "Duty hospital"
+            principal = Principal(role, principal.name, districts=chosen_ids, facility=facility)
+        else:
+            chosen_names = st.multiselect("Districts", all_names, default=default_names)
+            chosen_ids = tuple(ids_by_name[n] for n in chosen_names) or principal.districts
+            principal = Principal(role, principal.name, districts=chosen_ids)
+
     st.info(f"**Scope**\n\n{principal.scope_label()}", icon="🔎")
 
     st.divider()

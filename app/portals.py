@@ -506,6 +506,14 @@ def hospital_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon
         district_risk, capacity, horizon_weeks=horizon, ratios=live_ratios
     )
     readiness = filter_to_scope(readiness, principal)
+    readiness = readiness.merge(
+        capacity[["district_id", "n_facilities", "n_hospitals", "population"]],
+        on="district_id",
+        how="left",
+    )
+    readiness["facilities_per_100k"] = (
+        readiness["n_facilities"] / readiness["population"] * 100_000.0
+    )
 
     st.subheader("Hospital readiness")
     st.caption(f"Scope: {principal.scope_label()} · {horizon} weeks ahead")
@@ -578,6 +586,8 @@ def hospital_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon
                 "peak_occupied_beds",
                 "occupancy_pct",
                 "capacity_status",
+                "n_hospitals",
+                "facilities_per_100k",
             ]
         ].copy()
         # Pre-formatted as display strings rather than via st.column_config:
@@ -594,6 +604,8 @@ def hospital_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon
         show["paediatric_admissions"] = show["paediatric_admissions"].map("{:.0f}".format)
         show["peak_occupied_beds"] = show["peak_occupied_beds"].map("{:.0f}".format)
         show["occupancy_pct"] = show["occupancy_pct"].map("{:.1f}%".format)
+        show["n_hospitals"] = show["n_hospitals"].map("{:.0f}".format)
+        show["facilities_per_100k"] = show["facilities_per_100k"].map("{:.1f}".format)
         st.dataframe(
             show.rename(
                 columns={
@@ -606,6 +618,8 @@ def hospital_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon
                     "peak_occupied_beds": "Peak beds",
                     "occupancy_pct": "Occupancy %",
                     "capacity_status": "Status",
+                    "n_hospitals": "Hospitals",
+                    "facilities_per_100k": "Facilities/100k",
                 }
             ),
             hide_index=True,
@@ -619,6 +633,12 @@ def hospital_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon
             + (" (your ratios)." if is_customised else " (defaults).")
             + " Occupancy is against district beds estimated from World Bank national "
             "bed density, assuming 15% are available for dengue."
+        )
+        st.caption(
+            "**Hospitals** and **Facilities/100k** are real OpenStreetMap counts "
+            "(ODbL), not estimates — the same figures already used to set Stage 3's "
+            "allocation floor for facility-poor districts, alongside the case-based "
+            "high-risk flag."
         )
 
     with tab_supply:
@@ -754,6 +774,19 @@ def moh_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: int
     frame = filter_to_scope(_risk_frame(district_risk, horizon), principal)
     sweep = data.get("allocation_sweep")
     scenarios = data.get("scenarios")
+    capacity = data.get("district_capacity")
+
+    facility_poor: frozenset[str] = frozenset()
+    facilities_by_district: dict[str, int] = {}
+    if capacity is not None and not capacity.empty:
+        from dengue.ingest.health_facilities import facility_poor_districts
+
+        # Same nsmallest-over-25-rows arithmetic pipeline.py runs to set
+        # Stage 3's allocation floor -- recomputing it here to label the
+        # cards is cheap enough not to violate "never compute at request
+        # time" (that rule is about model refits and ILP re-solves).
+        facility_poor = frozenset(facility_poor_districts(capacity))
+        facilities_by_district = dict(zip(capacity["district_id"], capacity["n_facilities"]))
 
     st.subheader("District operations")
     st.caption(f"Scope: {principal.scope_label()} · {horizon} weeks ahead")
@@ -780,10 +813,14 @@ def moh_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: int
                 with c1:
                     st.markdown(risk_pill(a.risk_level), unsafe_allow_html=True)
                     st.markdown(f"**{a.district_name}**")
+                    n_fac = facilities_by_district.get(a.district_id)
+                    fac_line = f" · {n_fac} facilities" if n_fac is not None else ""
                     st.caption(
                         f"{_fmt(a.forecast_median)} cases · {a.incidence_per_100k:.1f}/100k · "
-                        f"{a.change_pct:+.0f}%"
+                        f"{a.change_pct:+.0f}%{fac_line}"
                     )
+                    if a.district_id in facility_poor:
+                        st.caption("🏥 Facility-poor — qualifies for the allocation floor")
                 with c2:
                     recommendation_list(a.recommendations, limit=3)
 
