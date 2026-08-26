@@ -12,6 +12,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 from components import (
+    CAPACITY_COLOURS,
     choropleth,
     estimate_notice,
     facility_map,
@@ -29,7 +30,7 @@ from theme import CATEGORICAL, PAGE, kpi_html
 from dengue import config
 from dengue.platform.hospital import ClinicalRatios
 from dengue.platform.provenance import SOURCE_REGISTRY, ProvenanceTier, unavailable_reason
-from dengue.platform.rbac import Permission, Principal, filter_to_scope
+from dengue.platform.rbac import Permission, Principal, Role, filter_to_scope
 from dengue.platform.risk import (
     RISK_THRESHOLDS,
     RiskLevel,
@@ -502,10 +503,10 @@ def hospital_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon
     # so recomputing this on every rerun does not violate the app's
     # no-compute-at-request-time rule the way retraining Stage 1 or
     # re-solving Stage 3 would.
-    readiness = build_readiness_table(
+    full_readiness = build_readiness_table(
         district_risk, capacity, horizon_weeks=horizon, ratios=live_ratios
     )
-    readiness = filter_to_scope(readiness, principal)
+    readiness = filter_to_scope(full_readiness, principal)
     readiness = readiness.merge(
         capacity[["district_id", "n_facilities", "n_hospitals", "population"]],
         on="district_id",
@@ -517,6 +518,92 @@ def hospital_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon
 
     st.subheader("Hospital readiness")
     st.caption(f"Scope: {principal.scope_label()} · {horizon} weeks ahead")
+
+    if principal.role is Role.HOSPITAL_STAFF:
+        own_names = {DISTRICT_NAMES.get(d, d) for d in principal.districts}
+        other_names = sorted(n for n in DISTRICT_NAMES.values() if n not in own_names)
+        with st.expander("🔍 Preview another district"):
+            st.caption(
+                "Not your account's assigned access — a read-only look at another "
+                "district's planning estimate, using the same public methodology as "
+                "your own district above. Choosing one here does not change what "
+                "your account can act on."
+            )
+            if other_names:
+                preview_name = st.selectbox(
+                    "District", other_names, key="hospital_preview_district"
+                )
+                name_to_id = {v: k for k, v in DISTRICT_NAMES.items()}
+                preview_id = name_to_id[preview_name]
+                preview_row = full_readiness[full_readiness["district_id"] == preview_id]
+                preview_capacity = capacity[capacity["district_id"] == preview_id]
+
+                if not preview_row.empty:
+                    r = preview_row.iloc[0]
+                    p1, p2, p3, p4 = st.columns(4)
+                    p1.metric("Forecast cases", _fmt(r["forecast_cases"]))
+                    p2.metric("Admissions", _fmt(r["admissions"]))
+                    p3.metric("ICU patients", _fmt(r["icu_patients"], 1))
+                    p4.metric("Occupancy", f"{r['occupancy_pct']:.0f}%")
+
+                    n_hosp = (
+                        int(preview_capacity["n_hospitals"].iloc[0])
+                        if not preview_capacity.empty
+                        else None
+                    )
+                    n_fac = (
+                        int(preview_capacity["n_facilities"].iloc[0])
+                        if not preview_capacity.empty
+                        else None
+                    )
+                    status_label = str(r["capacity_status"]).replace("_", " ").title()
+                    st.markdown(
+                        f"**Status:** {status_label} &nbsp;·&nbsp; **Hospitals:** "
+                        f"{n_hosp if n_hosp is not None else '—'} &nbsp;·&nbsp; "
+                        f"**Facilities:** {n_fac if n_fac is not None else '—'}"
+                    )
+
+                map_col, facility_col = st.columns(2)
+                with map_col:
+                    highlight_frame = full_readiness.copy()
+                    highlight_frame["is_previewed"] = (
+                        highlight_frame["district_id"] == preview_id
+                    )
+                    preview_chart = choropleth(
+                        highlight_frame,
+                        value_column="capacity_status",
+                        categorical=True,
+                        colour_map=CAPACITY_COLOURS,
+                        domain_order=list(CAPACITY_COLOURS),
+                        highlight_column="is_previewed",
+                        tooltip_columns=[
+                            ("occupancy_pct", "Occupancy %", ".1f"),
+                            ("admissions", "Admissions", ".0f"),
+                        ],
+                        legend_title="Capacity status",
+                        height=320,
+                        width=340,
+                    )
+                    if preview_chart is not None:
+                        # No use_container_width -- geoshape needs a fixed pixel extent.
+                        st.altair_chart(preview_chart)
+                with facility_col:
+                    all_facilities = data.get("health_facilities")
+                    if all_facilities is not None and not all_facilities.empty:
+                        preview_facilities = all_facilities[
+                            all_facilities["district_id"] == preview_id
+                        ]
+                        if not preview_facilities.empty:
+                            preview_fmap = facility_map(
+                                preview_facilities, height=320, width=340
+                            )
+                            if preview_fmap is not None:
+                                st.altair_chart(preview_fmap)
+                            st.caption(f"{len(preview_facilities):,} OSM facilities shown.")
+                        else:
+                            st.caption("No OpenStreetMap facilities recorded for this district.")
+            else:
+                st.caption("Your account already covers every district.")
 
     if ratio_error:
         st.error(
@@ -771,7 +858,6 @@ def moh_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: int
     principal.require(Permission.VIEW_DISTRICT_OPERATIONS)
 
     district_risk = data["district_risk"]
-    frame = filter_to_scope(_risk_frame(district_risk, horizon), principal)
     sweep = data.get("allocation_sweep")
     scenarios = data.get("scenarios")
     capacity = data.get("district_capacity")
@@ -791,38 +877,60 @@ def moh_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: int
     st.subheader("District operations")
     st.caption(f"Scope: {principal.scope_label()} · {horizon} weeks ahead")
 
-    assessments = [
-        a
-        for a in assess_all(district_risk, horizon_weeks=horizon, audience="moh")
-        if principal.may_see_district(a.district_id)
-    ]
+    all_assessments = assess_all(district_risk, horizon_weeks=horizon, audience="moh")
+
+    def _hotspot_card(a) -> None:
+        with st.container(border=True):
+            c1, c2 = st.columns([1, 3])
+            with c1:
+                st.markdown(risk_pill(a.risk_level), unsafe_allow_html=True)
+                st.markdown(f"**{a.district_name}**")
+                n_fac = facilities_by_district.get(a.district_id)
+                fac_line = f" · {n_fac} facilities" if n_fac is not None else ""
+                st.caption(
+                    f"{_fmt(a.forecast_median)} cases · {a.incidence_per_100k:.1f}/100k · "
+                    f"{a.change_pct:+.0f}%{fac_line}"
+                )
+                if a.district_id in facility_poor:
+                    st.caption("🏥 Facility-poor — qualifies for the allocation floor")
+            with c2:
+                recommendation_list(a.recommendations, limit=3)
 
     tab_ops, tab_teams, tab_plan, tab_scenario, tab_budget = st.tabs(
         ["Hotspots", "Team deployment", "Intervention plan", "Scenarios", "Budget"]
     )
 
     with tab_ops:
-        chart = _risk_choropleth(frame)
+        own_names = sorted(DISTRICT_NAMES.get(d, d) for d in principal.districts)
+        name_to_id = {v: k for k, v in DISTRICT_NAMES.items()}
+        if principal.role is Role.MOH_OFFICER:
+            # Which districts get a Hotspots card is chooseable -- this is a
+            # viewing convenience, not a scope change: Team deployment,
+            # Intervention plan and Budget below still run through
+            # filter_to_scope() against the account's real districts, so
+            # what this account can act on is unaffected by what it looks at
+            # here.
+            chosen_names = st.multiselect(
+                "Districts shown",
+                sorted(DISTRICT_NAMES.values()),
+                default=own_names,
+                key="moh_hotspot_districts",
+            )
+        else:
+            chosen_names = own_names
+        chosen_ids = {name_to_id[n] for n in chosen_names}
+        shown = [a for a in all_assessments if a.district_id in chosen_ids]
+        shown.sort(key=lambda a: a.incidence_per_100k, reverse=True)
+
+        highlight_frame = _risk_frame(district_risk, horizon).copy()
+        highlight_frame["is_shown"] = highlight_frame["district_id"].isin(chosen_ids)
+        chart = _risk_choropleth(highlight_frame, highlight_column="is_shown")
         if chart is not None:
             # No use_container_width -- geoshape needs a fixed pixel extent.
             st.altair_chart(chart)
 
-        for a in assessments[:3]:
-            with st.container(border=True):
-                c1, c2 = st.columns([1, 3])
-                with c1:
-                    st.markdown(risk_pill(a.risk_level), unsafe_allow_html=True)
-                    st.markdown(f"**{a.district_name}**")
-                    n_fac = facilities_by_district.get(a.district_id)
-                    fac_line = f" · {n_fac} facilities" if n_fac is not None else ""
-                    st.caption(
-                        f"{_fmt(a.forecast_median)} cases · {a.incidence_per_100k:.1f}/100k · "
-                        f"{a.change_pct:+.0f}%{fac_line}"
-                    )
-                    if a.district_id in facility_poor:
-                        st.caption("🏥 Facility-poor — qualifies for the allocation floor")
-                with c2:
-                    recommendation_list(a.recommendations, limit=3)
+        for a in shown:
+            _hotspot_card(a)
 
     with tab_teams:
         if sweep is None or sweep.empty:
@@ -1187,10 +1295,12 @@ def admin_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: i
                 rows.append(entry)
             st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
         st.info(
-            "**No authentication backend is connected.** The role switcher in the "
-            "sidebar is a demonstration of the access model, not a login. Production "
-            "deployment needs an identity provider and server-side enforcement — "
-            "client-side role selection is not a security control.",
+            "**Authentication is connected (Supabase).** Accounts are provisioned by "
+            "an administrator, not self-registered, and each account's role and "
+            "district scope is loaded server-side from a `profiles` row (see "
+            "`supabase/schema.sql`) — the viewer cannot choose a role, only sign "
+            "into whichever account they hold. This matrix documents what each role "
+            "is authorized to do once authenticated; it is not the login itself.",
             icon="🔐",
         )
 

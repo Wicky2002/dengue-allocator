@@ -45,7 +45,8 @@ from report import build_report_pdf
 from theme import PAGE_CSS, app_header, register_theme
 
 from dengue import config
-from dengue.platform.rbac import DEMO_PRINCIPALS, Principal, Role
+from dengue.platform.auth import AuthError, Session, sign_in
+from dengue.platform.rbac import Principal, Role
 
 st.set_page_config(
     page_title="DengueSentinel — Sri Lanka",
@@ -143,40 +144,36 @@ with st.sidebar:
     st.caption("National dengue decision support · Sri Lanka")
     st.divider()
 
-    st.markdown("**Viewing as**")
-    role = st.radio("Role", list(Role), format_func=lambda r: r.label, label_visibility="collapsed")
-    principal = DEMO_PRINCIPALS[role]
-    st.caption(principal.role.description)
+    st.session_state.setdefault("auth_session", None)
+    session: Session | None = st.session_state["auth_session"]
 
-    if role in (Role.HOSPITAL_STAFF, Role.MOH_OFFICER):
-        # HOSPITAL_STAFF and MOH_OFFICER are scoped to specific districts by
-        # design (see Principal.__post_init__ -- an empty district list would
-        # mean nationwide access, which these roles must not have). The demo
-        # principals above hardcode one example scope each (Colombo; Gampaha
-        # + Colombo) so a fresh switch to the role shows *something* -- but
-        # with no real accounts behind this switcher, letting the viewer pick
-        # which districts that scope covers is what makes every district
-        # reachable through the demo rather than just the two hardcoded ones.
-        names_by_id = {d.district_id: d.name for d in config.DISTRICTS}
-        ids_by_name = {v: k for k, v in names_by_id.items()}
-        all_names = sorted(names_by_id.values())
-        default_names = [names_by_id[d] for d in principal.districts]
-
-        if role is Role.HOSPITAL_STAFF:
-            chosen_name = st.selectbox(
-                "District",
-                all_names,
-                index=all_names.index(default_names[0]) if default_names else 0,
-            )
-            chosen_ids = (ids_by_name[chosen_name],)
-            # scope_label() already appends the district name(s) after the
-            # facility string, so the facility itself must not repeat it.
-            facility = principal.facility if chosen_ids == principal.districts else "Duty hospital"
-            principal = Principal(role, principal.name, districts=chosen_ids, facility=facility)
-        else:
-            chosen_names = st.multiselect("Districts", all_names, default=default_names)
-            chosen_ids = tuple(ids_by_name[n] for n in chosen_names) or principal.districts
-            principal = Principal(role, principal.name, districts=chosen_ids)
+    if session is not None:
+        principal = session.principal
+        role = principal.role
+        st.markdown(f"**Signed in** as {session.email}")
+        st.caption(f"{role.label} · {role.description}")
+        if st.button("Log out"):
+            st.session_state["auth_session"] = None
+            st.rerun()
+    else:
+        # Public risk information needs no account -- matches the existing
+        # design principle that the public portal is a deny-by-default
+        # subset, not something gated behind a login. Every other role is
+        # real staff access, so it requires a real Supabase account; there
+        # is no free role switcher here any more (see auth.py's docstring --
+        # that switcher used to carry a disclaimer that it wasn't a login).
+        role = Role.PUBLIC
+        principal = Principal(Role.PUBLIC, "Member of the public")
+        st.markdown("**Public view** — browsing without an account.")
+        with st.expander("Staff login"):
+            email = st.text_input("Email", key="login_email")
+            password = st.text_input("Password", type="password", key="login_password")
+            if st.button("Log in", key="login_submit"):
+                try:
+                    st.session_state["auth_session"] = sign_in(email, password)
+                    st.rerun()
+                except AuthError as exc:
+                    st.error(str(exc), icon="🔒")
 
     st.info(f"**Scope**\n\n{principal.scope_label()}", icon="🔎")
 
@@ -193,12 +190,6 @@ with st.sidebar:
             f"**Pipeline**  \nSource: `{row['panel_source']}`  \n"
             f"Model: `{row['forecast_model']}`  \nOrigin: {row['forecast_origin']}"
         )
-
-    st.divider()
-    st.caption(
-        "**No authentication is connected.** This switcher demonstrates the access "
-        "model; it is not a login and is not a security control."
-    )
 
 # --------------------------------------------------------------------------
 # Header
@@ -246,13 +237,32 @@ PORTALS = {
     Role.NATIONAL_ADMIN: admin_portal,
 }
 
-try:
-    PORTALS[role](principal, data, horizon)
-except PermissionError as exc:
-    # Should be unreachable: portals are built from permissions the role holds.
-    # Surfacing it rather than swallowing it means a future RBAC regression shows
-    # up as a visible error instead of silently rendering restricted data.
-    st.error(f"**Access denied.** {exc}", icon="🔒")
+
+def _render_portal(target_role: Role) -> None:
+    try:
+        PORTALS[target_role](principal, data, horizon)
+    except PermissionError as exc:
+        # Should be unreachable: portals are built from permissions the role holds.
+        # Surfacing it rather than swallowing it means a future RBAC regression shows
+        # up as a visible error instead of silently rendering restricted data.
+        st.error(f"**Access denied.** {exc}", icon="🔒")
+
+
+if role is Role.PUBLIC:
+    # Already the public view -- a second identical tab would be noise.
+    _render_portal(role)
+else:
+    # Every logged-in role can also see the same page a citizen sees, without
+    # signing out -- e.g. a doctor checking what the public is being told
+    # about their own district. Uses a fresh unscoped Public principal, not
+    # `principal` itself, so this tab renders identically to what an actual
+    # citizen sees rather than something quietly widened by the viewer's real
+    # (higher) permissions.
+    tab_mine, tab_public = st.tabs([role.label, "Public view"])
+    with tab_mine:
+        _render_portal(role)
+    with tab_public:
+        public_portal(Principal(Role.PUBLIC, "Member of the public"), data, horizon)
 
 st.divider()
 

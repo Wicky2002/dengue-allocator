@@ -323,6 +323,28 @@ PAGE_CSS = f"""
      .streamlit/config.toml already hides it, this is the CSS-only fallback
      for Streamlit versions where that setting isn't honoured. */
   [data-testid="stToolbarActions"] button[title="Deploy this app"] {{ display: none; }}
+
+  /* Narrow-viewport pass. Verified empirically (not guessed) against a
+     375px-wide phone: Streamlit's own column flexbox already wraps to a
+     stacked layout and every Altair/Vega-Lite chart in this app already
+     auto-fits its container width regardless of the Python-side `width=`
+     passed to `.properties()` -- neither needed a fix here. The one real
+     issue was .block-container's fixed 2rem (32px) side padding eating 17%
+     of a 375px screen's width before any content renders. Reducing it here
+     means .app-header-bar's compensating calc/margin (which cancels that
+     exact padding to reach the true edge -- see the comment above it) has
+     to shrink by the same amount, or the full-bleed trick misaligns. */
+  @media (max-width: 480px) {{
+    .block-container {{
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }}
+    .app-header-bar {{
+      width: calc(100% + 2rem);
+      padding: 22px 1rem 18px;
+      margin: 0 -1rem 20px -1rem;
+    }}
+  }}
 </style>
 """
 

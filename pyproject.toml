@@ -52,6 +52,10 @@ dependencies = [
     # matters on the same grounds as the geopandas/beautifulsoup4 comments
     # above: this project keeps `make setup` installable on a bare machine.
     "reportlab==5.0.0",
+    # Real authentication + the account/role/district store backing it (see
+    # src/dengue/platform/auth.py) -- replaces the Phase-2 demo role switcher
+    # that had no login behind it at all.
+    "supabase==2.31.0",
 ]
 
 [project.optional-dependencies]
