@@ -31,14 +31,18 @@ artifacts/*
 #     PUBLISHED Weekly Epidemiological Reports -- public, non-personal data.
 #   * Source data (data/) stays ignored. The panel is still built from
 #     source, not from anything committed here.
-#   * Only the 14 files app/streamlit_app.py's ARTIFACT_NAMES actually reads
-#     are listed. predictions.parquet (the largest, ~207 KB) is read by no
-#     page and stays ignored.
+#   * Only the 15 files app/streamlit_app.py's ARTIFACT_NAMES actually reads
+#     are listed. predictions.parquet (the rolling-origin model-comparison
+#     dump from `make baseline`, largest of the lot) is read by no page and
+#     stays ignored -- predictions_history.parquet is a different, much
+#     smaller file (dengue.eval.history, bounded to a fixed 2026 Jun-Aug
+#     window) and the app does read that one.
 #
 # These are a dated SNAPSHOT, not live data. Refresh with
-# `make data && make panel && make pipeline-real` and re-commit; the app
-# shows the pipeline run time and panel date range on every page so a stale
-# snapshot is visible as stale rather than passing as current.
+# `make data && make panel && make pipeline-real && make history-real` and
+# re-commit; the app shows the pipeline run time and panel date range on
+# every page so a stale snapshot is visible as stale rather than passing as
+# current.
 !artifacts/pipeline_meta.parquet
 !artifacts/district_risk.parquet
 !artifacts/panel_recent.parquet
@@ -53,6 +57,7 @@ artifacts/*
 !artifacts/health_facilities.parquet
 !artifacts/scenarios.parquet
 !artifacts/budget_sweep.parquet
+!artifacts/predictions_history.parquet
 
 # --- python ---
 __pycache__/

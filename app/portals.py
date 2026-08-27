@@ -261,7 +261,18 @@ def national_overview(data: dict[str, pd.DataFrame], horizon: int) -> None:
             st.session_state["selected_district"] = picked
             st.rerun()
 
-    if panel is not None and not panel.empty and "population" in panel.columns:
+    has_observed_history = (
+        panel is not None and not panel.empty and "population" in panel.columns
+    )
+    predictions_history = data.get("predictions_history")
+    at_horizon = (
+        predictions_history[predictions_history["horizon"] == horizon]
+        if predictions_history is not None and not predictions_history.empty
+        else None
+    )
+    has_predicted_history = at_horizon is not None and not at_horizon.empty
+
+    if has_observed_history:
         st.markdown("**View a past week**")
         history = panel.copy()
         history["incidence_per_100k"] = history["cases"] / history["population"] * 100_000.0
@@ -270,51 +281,130 @@ def national_overview(data: dict[str, pd.DataFrame], horizon: int) -> None:
         )
         weeks = sorted(history["iso_week"].dropna().unique())
         if weeks:
+            # One slider drives both maps below -- it names a single week,
+            # and each column answers a different question about it ("what
+            # happened" vs. "what the model, looking only at earlier data,
+            # thought would happen"). A second, separately-scrubbed slider
+            # for the prediction made the two maps hard to compare, since
+            # they were then usually showing two different weeks.
+            default_week = weeks[-1]
+            if has_predicted_history:
+                targets = sorted(at_horizon["target_week"].dropna().unique())
+                if targets:
+                    default_week = targets[-1]
             chosen_week = st.select_slider(
                 "Week",
                 weeks,
-                value=weeks[-1],
+                value=default_week,
                 format_func=lambda w: pd.Timestamp(w).strftime("%d %b %Y"),
                 key="history_week",
                 label_visibility="collapsed",
             )
-            week_frame = history[history["iso_week"] == chosen_week]
-            past_chart = choropleth(
-                week_frame,
-                value_column="risk_level",
-                categorical=True,
-                tooltip_columns=[
-                    ("cases", "Cases", ".0f"),
-                    ("incidence_per_100k", "Per 100,000/week", ".1f"),
-                ],
-                legend_title="Risk level",
-            )
-            if past_chart is None:
-                st.info("Map geometry unavailable.", icon="🗺️")
-            else:
-                # A key that varies with the selected week -- otherwise
-                # Streamlit reuses this element's prior client-side state
-                # across weeks the same way the current-week map's own click
-                # selection is deliberately shared (see the comment above
-                # `remembered`), which here would be the opposite of what's
-                # wanted: each week's map must stand on its own.
-                st.altair_chart(past_chart, key=f"history_map_{chosen_week}")
-            if not week_frame.empty:
-                worst = week_frame.sort_values("incidence_per_100k", ascending=False).iloc[0]
-                kpi_grid(
-                    [
-                        kpi_html(
-                            "Cases that week",
-                            _fmt(week_frame["cases"].sum()),
-                            "Nationwide, observed",
-                        ),
-                        kpi_html(
-                            "Highest risk that week",
-                            DISTRICT_NAMES.get(worst["district_id"], worst["district_id"]),
-                            classify(float(worst["incidence_per_100k"] or 0)).label,
-                        ),
-                    ]
+
+            observed_col, predicted_col = st.columns(2)
+
+            with observed_col:
+                st.caption("Observed")
+                week_frame = history[history["iso_week"] == chosen_week]
+                past_chart = choropleth(
+                    week_frame,
+                    value_column="risk_level",
+                    categorical=True,
+                    tooltip_columns=[
+                        ("cases", "Cases", ".0f"),
+                        ("incidence_per_100k", "Per 100,000/week", ".1f"),
+                    ],
+                    legend_title="Risk level",
+                    # Half-width column, next to the predicted map -- the
+                    # default 620px would overflow it.
+                    width=440,
+                    height=380,
                 )
+                if past_chart is None:
+                    st.info("Map geometry unavailable.", icon="🗺️")
+                else:
+                    # A key that varies with the selected week -- otherwise
+                    # Streamlit reuses this element's prior client-side
+                    # state across weeks the same way the current-week map's
+                    # own click selection is deliberately shared (see the
+                    # comment above `remembered`), which here would be the
+                    # opposite of what's wanted: each week's map must stand
+                    # on its own.
+                    st.altair_chart(past_chart, key=f"history_map_{chosen_week}")
+                if not week_frame.empty:
+                    worst = week_frame.sort_values("incidence_per_100k", ascending=False).iloc[0]
+                    kpi_grid(
+                        [
+                            kpi_html(
+                                "Cases that week",
+                                _fmt(week_frame["cases"].sum()),
+                                "Nationwide, observed",
+                            ),
+                            kpi_html(
+                                "Highest risk that week",
+                                DISTRICT_NAMES.get(worst["district_id"], worst["district_id"]),
+                                classify(float(worst["incidence_per_100k"] or 0)).label,
+                            ),
+                        ]
+                    )
+                else:
+                    st.info("No observed data for this week.", icon="🗓️")
+
+            with predicted_col:
+                st.caption(f"Predicted, {horizon}w ahead")
+                # Bounded to a fixed 2026 Jun-Aug window on purpose -- see
+                # dengue.eval.history's module docstring. `chosen_week` here
+                # is the *target* week (what the map shows), not the origin
+                # the model was standing at when it made the call.
+                pred_frame = (
+                    at_horizon[at_horizon["target_week"] == chosen_week].copy()
+                    if has_predicted_history
+                    else pd.DataFrame()
+                )
+                if pred_frame.empty:
+                    st.info("No prediction for this week at the current horizon.", icon="🗓️")
+                else:
+                    pred_frame["risk_level"] = pred_frame["predicted_incidence_per_100k"].apply(
+                        lambda v: classify(float(v or 0)).value
+                    )
+                    pred_chart = choropleth(
+                        pred_frame,
+                        value_column="risk_level",
+                        categorical=True,
+                        tooltip_columns=[
+                            ("predicted_incidence_per_100k", "Predicted per 100,000/week", ".1f"),
+                        ],
+                        legend_title="Predicted risk level",
+                        width=440,
+                        height=380,
+                    )
+                    if pred_chart is None:
+                        st.info("Map geometry unavailable.", icon="🗺️")
+                    else:
+                        st.altair_chart(
+                            pred_chart, key=f"history_pred_map_{chosen_week}_{horizon}"
+                        )
+                    pred_worst = pred_frame.sort_values(
+                        "predicted_incidence_per_100k", ascending=False
+                    ).iloc[0]
+                    kpi_grid(
+                        [
+                            kpi_html(
+                                "Predicted cases",
+                                _fmt(pred_frame["q0.5"].sum()),
+                                "Nationwide, that week",
+                            ),
+                            kpi_html(
+                                "Predicted highest risk",
+                                DISTRICT_NAMES.get(
+                                    pred_worst["district_id"], pred_worst["district_id"]
+                                ),
+                                classify(
+                                    float(pred_worst["predicted_incidence_per_100k"] or 0)
+                                ).label,
+                            ),
+                        ]
+                    )
 
     st.divider()
     trend_col, rain_col = st.columns(2)

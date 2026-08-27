@@ -75,6 +75,7 @@ ARTIFACT_NAMES = (
     "health_facilities",
     "scenarios",
     "budget_sweep",
+    "predictions_history",
 )
 
 

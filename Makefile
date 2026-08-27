@@ -96,7 +96,13 @@ pipeline:  ## Run all 3 stages and write every dashboard artifact (offline)
 pipeline-real:  ## Same, but against data/processed/panel.parquet
 	$(PY) -m dengue.pipeline
 
-all: baseline pipeline  ## Backtest + full pipeline, everything the app needs
+history:  ## Build the app's predicted-vs-actual historical view (offline)
+	$(PY) -m dengue.eval.history --synthetic
+
+history-real:  ## Same, but against data/processed/panel.parquet
+	$(PY) -m dengue.eval.history
+
+all: baseline pipeline history  ## Backtest + full pipeline, everything the app needs
 
 tune:  ## GA hyperparameter + ensemble-weight search, offline (~30 min)
 	$(PY) -m dengue.tuning.runner --synthetic --n-weeks $(N_WEEKS)

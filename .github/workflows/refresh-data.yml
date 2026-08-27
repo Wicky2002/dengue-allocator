@@ -2,9 +2,10 @@ name: Refresh real data
 
 # Automates the exact manual refresh step documented in .gitignore's
 # "DELIBERATE EXCEPTION" comment: `make data && make panel &&
-# make pipeline-real`, then re-commit the 14 whitelisted dashboard
-# artifacts. Streamlit Community Cloud auto-redeploys on the resulting
-# push, so the hosted demo picks up fresh figures with no manual step.
+# make pipeline-real && make history-real`, then re-commit the 15
+# whitelisted dashboard artifacts. Streamlit Community Cloud auto-redeploys
+# on the resulting push, so the hosted demo picks up fresh figures with no
+# manual step.
 #
 # This refreshes DATA, not MODELS. Stage 1's LightGBM hyperparameters and
 # ensemble weights come from the already-tuned data/processed/tuned_hyperparams.json
@@ -58,6 +59,14 @@ jobs:
 
       - name: Run the full pipeline against real data
         run: make pipeline-real
+
+      - name: Refresh the predicted-vs-actual historical view
+        # Bounded to a fixed 2026 Jun-Aug window (dengue.eval.history) -- as
+        # real weeks inside that window keep arriving, this fills in the
+        # origins that couldn't be scored yet because their target week
+        # hadn't happened. Once the window is fully in the past this becomes
+        # a no-op re-run of the same result.
+        run: make history-real
 
       - name: Commit refreshed artifacts
         run: |
