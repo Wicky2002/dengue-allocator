@@ -128,8 +128,21 @@ def fetch_facilities(*, refresh: bool = False) -> pd.DataFrame:
         )
         log.info("facilities: querying Overpass (licence %s)", OSM_LICENCE)
         payload = _overpass_query(query)
-        cache.parent.mkdir(parents=True, exist_ok=True)
-        cache.write_text(json.dumps(payload), encoding="utf-8")
+        # Only persist a response that actually has elements. Overpass can
+        # return HTTP 200 with an empty result during an overload/timeout on
+        # its end (not a transport error _overpass_query would retry on) --
+        # caching that would silently poison every future run with a
+        # permanent "0 facilities" result until someone notices and manually
+        # clears the cache file, since `cache.exists()` alone can't tell a
+        # genuine empty result from a merely-incomplete one.
+        if payload.get("elements"):
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            cache.write_text(json.dumps(payload), encoding="utf-8")
+        else:
+            log.warning(
+                "facilities: Overpass returned zero elements; not caching so the "
+                "next run retries live instead of reusing this empty result"
+            )
 
     rows: list[dict[str, Any]] = []
     for element in payload.get("elements", []):

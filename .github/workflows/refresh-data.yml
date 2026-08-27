@@ -1,0 +1,77 @@
+name: Refresh real data
+
+# Automates the exact manual refresh step documented in .gitignore's
+# "DELIBERATE EXCEPTION" comment: `make data && make panel &&
+# make pipeline-real`, then re-commit the 14 whitelisted dashboard
+# artifacts. Streamlit Community Cloud auto-redeploys on the resulting
+# push, so the hosted demo picks up fresh figures with no manual step.
+#
+# This refreshes DATA, not MODELS. Stage 1's LightGBM hyperparameters and
+# ensemble weights come from the already-tuned data/processed/tuned_hyperparams.json
+# (see `make tune`, a separate ~30-minute search run only occasionally by
+# hand) -- this workflow never re-runs that search. What it does is cheap:
+# the full pipeline ran in ~150s against real data the last time it was
+# timed by hand.
+
+on:
+  schedule:
+    # 03:00 UTC daily -- after most WER issues are published, well clear of
+    # any deploy/demo activity elsewhere.
+    - cron: "0 3 * * *"
+  workflow_dispatch: {}  # manual "Run workflow" button in the Actions tab
+
+concurrency:
+  group: refresh-data
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        # geo extra: dengue.ingest.boundaries (part of `make data`) needs
+        # shapely/geopandas, same as CI's own test job.
+        run: python -m pip install --upgrade pip && pip install -e ".[dev,geo]"
+
+      - name: Ingest real sources
+        # Each ingest step in `make data` is prefixed with `-` in the
+        # Makefile, so one source failing (e.g. ReliefWeb 403 without an
+        # approved appname, or epid.gov.lk being briefly unreachable) does
+        # not fail this step -- the pipeline proceeds on whatever sources
+        # succeeded, exactly as it does when run by hand.
+        env:
+          RELIEFWEB_APPNAME: ${{ secrets.RELIEFWEB_APPNAME }}
+        run: make data
+
+      - name: Build the real panel
+        run: make panel
+
+      - name: Run the full pipeline against real data
+        run: make pipeline-real
+
+      - name: Commit refreshed artifacts
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # A shell-expanded glob (artifacts/*.parquet) would include
+          # predictions.parquet -- gitignored on purpose (read by no page,
+          # see .gitignore's comment) -- and `git add` errors on an
+          # explicitly-named ignored path. Adding the directory itself
+          # instead lets git's own ignore rules apply silently.
+          git add artifacts/
+          if git diff --cached --quiet; then
+            echo "No artifact changes -- nothing to commit."
+          else
+            git commit -m "Scheduled data refresh: $(date -u +'%Y-%m-%d %H:%M UTC')"
+            git push
+          fi
