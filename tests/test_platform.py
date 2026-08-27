@@ -168,12 +168,12 @@ def test_unavailable_reason_refuses_to_invent():
     ("incidence", "expected"),
     [
         (0.0, RiskLevel.LOW),
-        (2.9, RiskLevel.LOW),
-        (3.0, RiskLevel.MODERATE),
-        (7.9, RiskLevel.MODERATE),
-        (8.0, RiskLevel.HIGH),
-        (15.9, RiskLevel.HIGH),
-        (16.0, RiskLevel.SEVERE),
+        (1.4, RiskLevel.LOW),
+        (1.5, RiskLevel.MODERATE),
+        (3.4, RiskLevel.MODERATE),
+        (3.5, RiskLevel.HIGH),
+        (6.9, RiskLevel.HIGH),
+        (7.0, RiskLevel.SEVERE),
         (500.0, RiskLevel.SEVERE),
     ],
 )
@@ -397,7 +397,10 @@ def test_assess_all_orders_worst_first():
 def test_national_summary_counts_bands():
     summary = national_summary(assess_all(_fake_district_risk(), horizon_weeks=2))
     assert summary["n_districts"] == 6
-    assert summary["n_severe"] == 1
+    # Fixture incidences [20.0, 9.0, 4.0, 1.0, 0.4, 0.1] against the current
+    # thresholds (Moderate 1.5 / High 3.5 / Severe 7.0, see risk.py): 20.0 and
+    # 9.0 both clear Severe, 4.0 lands in High, the rest are Low.
+    assert summary["n_severe"] == 2
     assert summary["n_rising_fast"] == 1
     assert summary["total_forecast_cases"] == pytest.approx(676.0)
 

@@ -112,7 +112,7 @@ def _risk_choropleth(
         categorical=True,
         tooltip_columns=[
             ("q0.5", "Forecast cases", ".0f"),
-            ("incidence_per_100k", "Per 100,000", ".1f"),
+            ("incidence_per_100k", "Per 100,000/week", ".1f"),
         ],
         legend_title="Risk level",
         enable_click=enable_click,
@@ -221,7 +221,7 @@ def national_overview(data: dict[str, pd.DataFrame], horizon: int) -> None:
         cols = st.columns(4)
         for col, level in zip(cols, RiskLevel, strict=False):
             col.markdown(risk_pill(level), unsafe_allow_html=True)
-            col.caption(f"Above {int(RISK_THRESHOLDS[level])} per 100,000")
+            col.caption(f"Above {RISK_THRESHOLDS[level]:g} per 100,000 per week")
 
     with rank_col:
         st.markdown("**Every district, ranked**")
@@ -241,7 +241,7 @@ def national_overview(data: dict[str, pd.DataFrame], horizon: int) -> None:
             .mark_bar(cornerRadiusEnd=3)
             .encode(
                 y=alt.Y("district:N", sort="-x", title=None),
-                x=alt.X("incidence_per_100k:Q", title="Per 100,000"),
+                x=alt.X("incidence_per_100k:Q", title="Per 100,000/week"),
                 color=alt.Color(
                     "risk_level:N",
                     scale=alt.Scale(domain=list(colours), range=list(colours.values())),
@@ -250,7 +250,7 @@ def national_overview(data: dict[str, pd.DataFrame], horizon: int) -> None:
                 opacity=alt.condition("datum.is_selected", alt.value(1.0), alt.value(0.55)),
                 tooltip=[
                     alt.Tooltip("district:N", title="District"),
-                    alt.Tooltip("incidence_per_100k:Q", title="Per 100,000", format=".1f"),
+                    alt.Tooltip("incidence_per_100k:Q", title="Per 100,000/week", format=".1f"),
                     alt.Tooltip("risk_level:N", title="Risk"),
                 ],
             )
@@ -267,6 +267,66 @@ def national_overview(data: dict[str, pd.DataFrame], horizon: int) -> None:
         if picked and picked != remembered:
             st.session_state["selected_district"] = picked
             st.rerun()
+
+    if panel is not None and not panel.empty and "population" in panel.columns:
+        st.markdown("**View a past week**")
+        st.caption(
+            "Real observed cases for a week you choose — not a forecast. Uses the "
+            "same risk bands and colours as the map above, so a district shown "
+            "HIGH here means the same thing as HIGH does today."
+        )
+        history = panel.copy()
+        history["incidence_per_100k"] = history["cases"] / history["population"] * 100_000.0
+        history["risk_level"] = history["incidence_per_100k"].apply(
+            lambda v: classify(float(v or 0)).value
+        )
+        weeks = sorted(history["iso_week"].dropna().unique())
+        if weeks:
+            chosen_week = st.select_slider(
+                "Week",
+                weeks,
+                value=weeks[-1],
+                format_func=lambda w: pd.Timestamp(w).strftime("%d %b %Y"),
+                key="history_week",
+                label_visibility="collapsed",
+            )
+            week_frame = history[history["iso_week"] == chosen_week]
+            past_chart = choropleth(
+                week_frame,
+                value_column="risk_level",
+                categorical=True,
+                tooltip_columns=[
+                    ("cases", "Cases", ".0f"),
+                    ("incidence_per_100k", "Per 100,000/week", ".1f"),
+                ],
+                legend_title="Risk level",
+            )
+            if past_chart is None:
+                st.info("Map geometry unavailable.", icon="🗺️")
+            else:
+                # A key that varies with the selected week -- otherwise
+                # Streamlit reuses this element's prior client-side state
+                # across weeks the same way the current-week map's own click
+                # selection is deliberately shared (see the comment above
+                # `remembered`), which here would be the opposite of what's
+                # wanted: each week's map must stand on its own.
+                st.altair_chart(past_chart, key=f"history_map_{chosen_week}")
+            if not week_frame.empty:
+                worst = week_frame.sort_values("incidence_per_100k", ascending=False).iloc[0]
+                kpi_grid(
+                    [
+                        kpi_html(
+                            "Cases that week",
+                            _fmt(week_frame["cases"].sum()),
+                            "Nationwide, observed",
+                        ),
+                        kpi_html(
+                            "Highest risk that week",
+                            DISTRICT_NAMES.get(worst["district_id"], worst["district_id"]),
+                            classify(float(worst["incidence_per_100k"] or 0)).label,
+                        ),
+                    ]
+                )
 
     st.divider()
     trend_col, rain_col = st.columns(2)
@@ -374,7 +434,7 @@ def public_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: 
                 )
                 st.caption(
                     f"Likely range {_fmt(a.forecast_lower)}–{_fmt(a.forecast_upper)} cases "
-                    f"(80% interval) · {a.incidence_per_100k:.1f} per 100,000"
+                    f"(80% interval) · {a.incidence_per_100k:.1f} per 100,000 per week"
                 )
             with right:
                 st.markdown("**What you should do**")

@@ -16,10 +16,23 @@ Where the thresholds come from
 The bands below are **operational planning thresholds**, not a clinical
 standard. There is no internationally agreed incidence cut-off that defines a
 dengue "outbreak" — thresholds in the literature are endemicity-specific and
-usually derived per country. These are calibrated so that, on Sri Lanka's
-historical district-week incidence distribution, roughly the top decile lands in
-HIGH or above. They are exposed as constants and are meant to be re-calibrated
-against real WER history before operational use.
+usually derived per country. They are exposed as constants specifically so
+they can be re-calibrated as real data becomes available, rather than baked
+in as magic numbers throughout the codebase.
+
+Recalibrated 2026-08 against the real WER-derived panel (104 weeks x 25
+districts, 2,600 district-weeks). The original values (Moderate/High/Severe
+at 3/8/16) were calibrated against the synthetic panel and never revisited
+once real data existed: on the real distribution HIGH fired in 0.2% of
+district-weeks and SEVERE never fired at all (observed max incidence ever
+was 12.8, short of the 16 threshold) -- the top two bands were structurally
+unreachable, so the map read as uniformly green regardless of what was
+actually happening. Current values target roughly the same shape the module
+always intended (top quartile / ~top 5% / ~top 1% of the real distribution
+land in Moderate / High / Severe respectively), just measured against real
+history instead of synthetic. Re-run the recalibration if the real panel's
+distribution shifts materially (e.g. after a genuine large outbreak enters
+the history window).
 
 Trend matters as much as level
 ------------------------------
@@ -80,9 +93,9 @@ class RiskLevel(str, Enum):
 #: operational planning thresholds, not a clinical standard.
 RISK_THRESHOLDS: dict[RiskLevel, float] = {
     RiskLevel.LOW: 0.0,
-    RiskLevel.MODERATE: 3.0,
-    RiskLevel.HIGH: 8.0,
-    RiskLevel.SEVERE: 16.0,
+    RiskLevel.MODERATE: 1.5,
+    RiskLevel.HIGH: 3.5,
+    RiskLevel.SEVERE: 7.0,
 }
 
 #: Week-over-week growth in the median forecast above which a district counts as

@@ -158,11 +158,13 @@ def build_report_pdf(
     story.append(kpi_table)
     story.append(Spacer(1, 18))
 
-    story.append(Paragraph("Every district, ranked by incidence per 100,000", styles["Heading2"]))
+    story.append(
+        Paragraph("Every district, ranked by incidence per 100,000 per week", styles["Heading2"])
+    )
     story.append(Spacer(1, 4))
 
     ranked = frame.sort_values("incidence_per_100k", ascending=False)
-    header = ["District", "Risk", "Forecast cases", "Per 100,000"]
+    header = ["District", "Risk", "Forecast cases", "Per 100,000/week"]
     table_rows = [header]
     row_colours: list[colors.Color] = []
     for _, row in ranked.iterrows():
