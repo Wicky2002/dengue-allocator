@@ -160,10 +160,7 @@ def national_overview(data: dict[str, pd.DataFrame], horizon: int) -> None:
     summary = national_summary(assessments)
 
     st.markdown("## National overview")
-    st.caption(
-        f"All {summary['n_districts']} districts, {horizon} weeks ahead — identical for "
-        "every role, shown before anything role-specific below."
-    )
+    st.caption(f"All {summary['n_districts']} districts, {horizon} weeks ahead")
 
     kpi_grid(
         [
@@ -225,10 +222,6 @@ def national_overview(data: dict[str, pd.DataFrame], horizon: int) -> None:
 
     with rank_col:
         st.markdown("**Every district, ranked**")
-        st.caption(
-            "Shown in full regardless of the map above. Click a bar to jump to it "
-            "in the Public portal's district lookup."
-        )
         ranked = frame.sort_values("incidence_per_100k", ascending=False)
         colours = {level.value: level.colour for level in RiskLevel}
         # This click param only captures the event (on_select="rerun" needs at
@@ -270,11 +263,6 @@ def national_overview(data: dict[str, pd.DataFrame], horizon: int) -> None:
 
     if panel is not None and not panel.empty and "population" in panel.columns:
         st.markdown("**View a past week**")
-        st.caption(
-            "Real observed cases for a week you choose — not a forecast. Uses the "
-            "same risk bands and colours as the map above, so a district shown "
-            "HIGH here means the same thing as HIGH does today."
-        )
         history = panel.copy()
         history["incidence_per_100k"] = history["cases"] / history["population"] * 100_000.0
         history["risk_level"] = history["incidence_per_100k"].apply(
@@ -343,11 +331,7 @@ def national_overview(data: dict[str, pd.DataFrame], horizon: int) -> None:
                 history_and_forecast_chart(national_history, national_forecast),
                 width="stretch",
             )
-            st.caption(
-                "Solid = observed. Dashed = forecast, summed across districts — a "
-                "coarse aggregate for an at-a-glance view, not a jointly-modelled "
-                "national interval."
-            )
+            st.caption("Solid = observed. Dashed = forecast, summed across districts.")
         else:
             st.info("Not enough data for a trend chart yet.", icon="ℹ️")
 
@@ -370,11 +354,6 @@ def national_overview(data: dict[str, pd.DataFrame], horizon: int) -> None:
     if national is not None and not national.empty:
         st.markdown("**Rainfall and cases, overlaid**")
         st.altair_chart(rainfall_cases_overlay(national, height=260), width="stretch")
-        st.caption(
-            "Same two series, one timeline — each normalised to its own 0–100 "
-            "range so the lag is easy to eyeball. Not a magnitude comparison "
-            "between rain and cases; see the stacked panels above for that."
-        )
 
 
 # ==========================================================================
@@ -583,12 +562,7 @@ def hospital_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon
         own_names = {DISTRICT_NAMES.get(d, d) for d in principal.districts}
         other_names = sorted(n for n in DISTRICT_NAMES.values() if n not in own_names)
         with st.expander("🔍 Preview another district"):
-            st.caption(
-                "Not your account's assigned access — a read-only look at another "
-                "district's planning estimate, using the same public methodology as "
-                "your own district above. Choosing one here does not change what "
-                "your account can act on."
-            )
+            st.caption("Preview only — does not change your account's access.")
             if other_names:
                 preview_name = st.selectbox(
                     "District", other_names, key="hospital_preview_district"

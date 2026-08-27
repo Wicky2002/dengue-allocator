@@ -1,0 +1,43 @@
+## Question set 1 — for Public
+
+**1. Baseline (before showing them anything):**
+> "Do you think dengue is something to worry about in [their district] this week? And roughly how many cases do you think there are nearby?"
+
+Write down: their answer, how long they took (rough seconds/minutes), and *"On a scale of 1–5, how sure are you of that guess?"*
+
+**2. Hand them the tool** (district lookup, already open): *"Find out if you should actually be worried, and see how many cases are forecast."* Don't help — just time it and watch quietly.
+
+**3. After they find it:**
+> "So — should you be worried? How many cases?"
+
+Write down their new answer + time taken, then *"Now how sure are you, 1–5?"*
+
+**4. Five 1–5 ratings:** Easy to use? / Trusted the numbers? / Would use weekly? / Faster than usual? / Confusing at any point? *(reversed — 5 = very confusing)*
+
+**5. Open question:** "What would you change about it?"
+
+**6. Note yourself:** completed unaided Y/N, anything they got stuck on.
+
+**Optional, only if it happens naturally:** if they scroll down and notice the "View a past week" slider on their own, jot their reaction (that's column AA now) — don't specifically point them to it.
+
+Send me name/relation + district, both rounds' answers/times/confidence, the 5 ratings, unaided Y/N, what they'd change, and any friction — same format as before.
+
+---
+
+## Question set 2 — for MOH, hospital staff, or admin contact
+
+Same exact protocol shape, just the task question and baseline framing change per role. One important practical note first: **each of these roles needs a real login** — hospital staff has doctor accounts already; MOH and National admin have SQL-seeded accounts (`moh@example.com` / `admin@example.com`, password `ChangeMe123!` unless you changed it) with no real human behind them yet. If you find a real person for one of these, use that existing seeded account for them to log in with.
+
+**Hospital staff (clinical)** — baseline question:
+> "Do you expect a rise in dengue admissions at your hospital in the next 2 weeks — roughly how many, how severe?"
+Tool task: log in, find the Hospital readiness view, answer the same question from what it shows (admissions, severe cases, ICU).
+
+**MOH / Regional officer** — baseline question:
+> "Right now, which district do you think should get extra vector-control teams this week?"
+Tool task: log in, find District operations → Team deployment, answer from what the tool actually allocates.
+
+**National admin** — baseline question:
+> "Where in the country do you think the biggest emerging dengue risk is right now?"
+Tool task: log in, find the National overview, answer from the real ranked list/map.
+
+Steps 4–6 (five ratings, open question, unaided note) are identical across all three and identical to the public version above. Send me the same fields per person and I'll drop them in as real rows, replacing whichever simulated row that role currently has.

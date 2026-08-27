@@ -271,12 +271,9 @@ if not is_synthetic and meta is not None and not meta.empty:
     # since that caveat has to be seen before anything else; the real-data
     # case is a quieter confirmation and belongs down here instead, after
     # everything it's vouching for has already been read.
-    row = meta.iloc[0]
     st.success(
-        f"**Real data.** Panel: `{row['panel_rows']:,}` rows, "
-        f"`{row['n_districts']}` districts, `{row['panel_start']}` → `{row['panel_end']}`. "
-        "Sourced from the Epidemiology Unit WER reports and Open-Meteo — see "
-        "**Data sources** in the National administrator portal for full provenance.",
+        "**Real data** — Epidemiology Unit WER reports & Open-Meteo. Full "
+        "provenance: National administrator portal → Data sources.",
         icon="✅",
     )
 
