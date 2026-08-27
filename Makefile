@@ -102,6 +102,9 @@ history:  ## Build the app's predicted-vs-actual historical view (offline)
 history-real:  ## Same, but against data/processed/panel.parquet
 	$(PY) -m dengue.eval.history
 
+alerts:  ## Send this week's due email alerts (needs Supabase + Resend secrets)
+	$(PY) -m dengue.platform.alerts
+
 all: baseline pipeline history  ## Backtest + full pipeline, everything the app needs
 
 tune:  ## GA hyperparameter + ensemble-weight search, offline (~30 min)

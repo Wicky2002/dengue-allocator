@@ -22,10 +22,10 @@ Setup this depends on (see ``supabase/schema.sql``, not run automatically):
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 
 from dengue.platform.rbac import Principal, Role
+from dengue.platform.secrets import get_secret
 from dengue.utils.logging import get_logger
 
 log = get_logger(__name__)
@@ -35,28 +35,11 @@ class AuthError(Exception):
     """Sign-in or profile-lookup failure. The message is safe to show a user directly."""
 
 
-def _get_secret(name: str) -> str | None:
-    """Read a config value from Streamlit secrets first, then the environment.
-
-    Importing streamlit lazily (not at module level) keeps this module
-    importable from a plain script -- e.g. a one-off account-seeding script
-    -- without needing a Streamlit runtime.
-    """
-    try:
-        import streamlit as st
-
-        if name in st.secrets:
-            return str(st.secrets[name])
-    except Exception:
-        pass
-    return os.environ.get(name)
-
-
 def _client():
     from supabase import create_client
 
-    url = _get_secret("SUPABASE_URL")
-    key = _get_secret("SUPABASE_ANON_KEY")
+    url = get_secret("SUPABASE_URL")
+    key = get_secret("SUPABASE_ANON_KEY")
     if not url or not key:
         raise AuthError(
             "Supabase is not configured. Set SUPABASE_URL and SUPABASE_ANON_KEY in "

@@ -28,6 +28,7 @@ from components import (
 from theme import CATEGORICAL, PAGE, kpi_html
 
 from dengue import config
+from dengue.platform.alerts import AlertError, save_subscription
 from dengue.platform.hospital import ClinicalRatios
 from dengue.platform.provenance import SOURCE_REGISTRY, ProvenanceTier, unavailable_reason
 from dengue.platform.rbac import Permission, Principal, Role, filter_to_scope
@@ -569,13 +570,30 @@ def public_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: 
     if principal.can(Permission.SUBSCRIBE_ALERTS):
         st.divider()
         with st.expander("Get alerts for your district"):
-            st.multiselect("Districts", sorted(frame["district"].unique()), key="alert_districts")
-            st.checkbox("Weekly forecast summary", value=True, key="alert_weekly")
-            st.checkbox("Outbreak warnings only", key="alert_outbreak")
-            st.button("Save preferences", type="primary")
+            email = st.text_input("Email", key="alert_email", placeholder="you@example.com")
+            chosen_names = st.multiselect(
+                "Districts", sorted(frame["district"].unique()), key="alert_districts"
+            )
+            weekly = st.checkbox("Weekly forecast summary", value=True, key="alert_weekly")
+            outbreak = st.checkbox("Outbreak warnings only", key="alert_outbreak")
+            if st.button("Save preferences", type="primary"):
+                name_to_id = {v: k for k, v in DISTRICT_NAMES.items()}
+                district_ids = [name_to_id[n] for n in chosen_names if n in name_to_id]
+                try:
+                    save_subscription(
+                        email,
+                        district_ids,
+                        weekly_summary=weekly,
+                        outbreak_only=outbreak,
+                    )
+                except AlertError as exc:
+                    st.error(str(exc), icon="🔒")
+                else:
+                    st.success("Saved. You'll hear from us at the next weekly refresh.", icon="✅")
             st.caption(
-                "This build stores preferences in the browser session only. Delivery "
-                "would need an SMS or email gateway, which is not connected."
+                "Real subscriptions, stored for real (Supabase) -- sent by the same "
+                "scheduled job that refreshes the data every week. No account needed; "
+                "resubmit this form any time to change your preferences."
             )
 
 

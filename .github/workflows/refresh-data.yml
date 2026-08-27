@@ -60,6 +60,19 @@ jobs:
       - name: Run the full pipeline against real data
         run: make pipeline-real
 
+      - name: Send due email alerts
+        # Reads district_risk.parquet, just written above, against every
+        # public.alert_subscriptions row (dengue.platform.alerts). Degrades
+        # to a no-op with a logged warning -- not a failed run -- if the
+        # Supabase/Resend secrets below aren't set yet; see alerts.py's
+        # module docstring for what each one is for.
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ALERT_FROM_EMAIL: ${{ secrets.ALERT_FROM_EMAIL }}
+        run: make alerts
+
       - name: Refresh the predicted-vs-actual historical view
         # Bounded to a fixed 2026 Jun-Aug window (dengue.eval.history) -- as
         # real weeks inside that window keep arriving, this fills in the
