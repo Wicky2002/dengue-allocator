@@ -55,8 +55,8 @@ export async function signIn(_prev: SignInState, formData: FormData): Promise<Si
   // the project, and without giving a script anything to distinguish from a
   // wrong password.
   if (
-    isRateLimited(`signin:email:${email.toLowerCase()}`, MAX_ATTEMPTS, WINDOW_MS) ||
-    isRateLimited(`signin:ip:${ip}`, MAX_ATTEMPTS, WINDOW_MS)
+    (await isRateLimited(`signin:email:${email.toLowerCase()}`, MAX_ATTEMPTS, WINDOW_MS)) ||
+    (await isRateLimited(`signin:ip:${ip}`, MAX_ATTEMPTS, WINDOW_MS))
   ) {
     console.error(`[auth] rate-limited sign-in attempt for ${email} from ${ip}`);
     return { error: 'Too many attempts. Wait a few minutes and try again.' };

@@ -100,7 +100,15 @@ function applyProductionSecurityHeaders(response: NextResponse, csp: string): Ne
 export async function middleware(request: NextRequest) {
   const isProd = process.env.NODE_ENV === 'production';
 
-  const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
+  // Web Crypto + btoa, not Buffer -- Middleware runs on the Edge runtime by
+  // default, where `Buffer` is a Node global that isn't part of the
+  // documented, guaranteed API surface (some Edge providers polyfill it,
+  // some don't). `crypto.getRandomValues` and `btoa` are both standard Web
+  // APIs available in every runtime this code could plausibly run on --
+  // Vercel's Edge Network included -- so the nonce no longer depends on
+  // which runtime Middleware happens to execute under.
+  const nonceBytes = crypto.getRandomValues(new Uint8Array(18));
+  const nonce = btoa(String.fromCharCode(...nonceBytes));
   const csp = buildCsp(nonce);
 
   // Mirrored onto the outgoing request headers (not only the response) --
