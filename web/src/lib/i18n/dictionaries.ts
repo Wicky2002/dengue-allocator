@@ -127,11 +127,14 @@ const en: Dictionary = {
   'alerts.districts': 'Districts',
   'alerts.weekly': 'Weekly forecast summary',
   'alerts.outbreakOnly': 'Outbreak warnings only',
-  'alerts.save': 'Save preferences',
+  'alerts.email': 'Email address',
+  'alerts.save': 'Subscribe',
   'alerts.saved': 'Saved in this browser.',
-  'alerts.noticeTitle': 'No alerts will actually be sent',
+  'alerts.subscribedTitle': 'Subscribed',
+  'alerts.subscribed': 'You\u2019ll hear from us at the next weekly refresh.',
+  'alerts.noticeTitle': 'What you\u2019ll receive',
   'alerts.noticeBody':
-    'This build stores your choice in this browser only. Delivery needs an SMS or email gateway, which is not connected — so nothing here registers you for anything, and the platform says so rather than leaving you expecting a message.',
+    'Real subscriptions, stored for real, sent by the same scheduled job that refreshes the data every week. No account needed \u2014 resubmit this form any time to change your preferences.',
 
   // --- Risk bands ---------------------------------------------------------
   'risk.low': 'Low',
@@ -448,11 +451,14 @@ const si: Dictionary = {
   'alerts.districts': 'දිස්ත්‍රික්ක',
   'alerts.weekly': 'සතිපතා පුරෝකථන සාරාංශය',
   'alerts.outbreakOnly': 'රෝග පැතිරීමේ අනතුරු ඇඟවීම් පමණි',
-  'alerts.save': 'මනාපයන් සුරකින්න',
+  'alerts.email': 'විද්‍යුත් තැපැල් ලිපිනය',
+  'alerts.save': 'දායක වන්න',
   'alerts.saved': 'මෙම බ්‍රව්සරයේ සුරකින ලදී.',
-  'alerts.noticeTitle': 'දැනුම්දීම් යවනු නොලැබේ',
+  'alerts.subscribedTitle': 'දායක විය',
+  'alerts.subscribed': 'ඊළඟ සතිපතා යාවත්කාලීනයේදී ඔබට දැනුම් දෙනු ලැබේ.',
+  'alerts.noticeTitle': 'ඔබට ලැබෙන දේ',
   'alerts.noticeBody':
-    'මෙම අනුවාදය ඔබේ තේරීම මෙම බ්‍රව්සරයේ පමණක් ගබඩා කරයි. දැනුම්දීම් යැවීමට SMS හෝ ඊමේල් සේවාවක් අවශ්‍ය වන අතර එය තවම සම්බන්ධ කර නොමැත.',
+    'සැබෑ දායකත්ව, සැබවින්ම ගබඩා කර, සෑම සතියකම දත්ත යාවත්කාලීන කරන එම නියමිත කාර්යය මගින්ම යවනු ලැබේ. ගිණුමක් අවශ්‍ය නැත — ඔබේ මනාපයන් වෙනස් කිරීමට ඕනෑම වේලාවක මෙම පෝරමය නැවත ඉදිරිපත් කරන්න.',
 
   'risk.low': 'අඩු',
   'risk.moderate': 'මධ්‍යම',
@@ -758,11 +764,14 @@ const ta: Dictionary = {
   'alerts.districts': 'மாவட்டங்கள்',
   'alerts.weekly': 'வாராந்திர முன்னறிவிப்புச் சுருக்கம்',
   'alerts.outbreakOnly': 'நோய்ப் பரவல் எச்சரிக்கைகள் மட்டும்',
-  'alerts.save': 'விருப்பங்களைச் சேமி',
+  'alerts.email': 'மின்னஞ்சல் முகவரி',
+  'alerts.save': 'குழுசேர்',
   'alerts.saved': 'இந்த உலாவியில் சேமிக்கப்பட்டது.',
-  'alerts.noticeTitle': 'எச்சரிக்கைகள் அனுப்பப்பட மாட்டா',
+  'alerts.subscribedTitle': 'குழுசேர்க்கப்பட்டது',
+  'alerts.subscribed': 'அடுத்த வாராந்திர புதுப்பிப்பில் உங்களுக்குத் தெரிவிக்கப்படும்.',
+  'alerts.noticeTitle': 'நீங்கள் பெறுவது',
   'alerts.noticeBody':
-    'இந்தப் பதிப்பு உங்கள் தேர்வை இந்த உலாவியில் மட்டுமே சேமிக்கிறது. அனுப்புவதற்கு SMS அல்லது மின்னஞ்சல் சேவை தேவை, அது இன்னும் இணைக்கப்படவில்லை.',
+    'உண்மையான குழுசேர்க்கைகள், உண்மையாகவே சேமிக்கப்பட்டு, ஒவ்வொரு வாரமும் தரவைப் புதுப்பிக்கும் அதே திட்டமிடப்பட்ட பணியால் அனுப்பப்படுகின்றன. கணக்கு தேவையில்லை — உங்கள் விருப்பங்களை மாற்ற எப்போது வேண்டுமானாலும் இந்த படிவத்தை மீண்டும் சமர்ப்பிக்கவும்.',
 
   'risk.low': 'குறைவு',
   'risk.moderate': 'மிதமான',
