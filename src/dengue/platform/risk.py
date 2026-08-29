@@ -71,12 +71,20 @@ class RiskLevel(str, Enum):
 
     @property
     def colour(self) -> str:
-        """Map fill. Reserved status colours -- never reused as a series colour."""
+        """Map fill. Reserved status colours -- never reused as a series colour.
+
+        A sequential ramp, not a traffic light: lightness falls monotonically as
+        risk rises, so the map still ranks correctly when printed in greyscale
+        and for the ~8% of men with a red/green deficiency. The low band is a
+        desaturated teal rather than a pure green for the same reason -- a
+        saturated green reads as "good" rather than as the bottom of a scale,
+        and it fights the institutional palette both front ends now use.
+        """
         return {
-            RiskLevel.LOW: "#0ca30c",
-            RiskLevel.MODERATE: "#fab219",
-            RiskLevel.HIGH: "#ec835a",
-            RiskLevel.SEVERE: "#d03b3b",
+            RiskLevel.LOW: "#0f766e",
+            RiskLevel.MODERATE: "#ca8a04",
+            RiskLevel.HIGH: "#ea580c",
+            RiskLevel.SEVERE: "#b91c1c",
         }[self]
 
     @property

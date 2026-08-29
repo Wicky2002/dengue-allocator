@@ -25,7 +25,7 @@ from components import (
     risk_pill,
     trend_chart,
 )
-from theme import CATEGORICAL, PAGE, kpi_html
+from theme import CATEGORICAL, PAGE, STATUS, kpi_html
 
 from dengue import config
 from dengue.platform.alerts import AlertError, save_subscription
@@ -1189,10 +1189,13 @@ def moh_portal(principal: Principal, data: dict[str, pd.DataFrame], horizon: int
                     .encode(
                         y=alt.Y("scenario:N", sort="-x", title=None),
                         x=alt.X("change_pct:Q", title="Change in cases vs baseline (%)"),
+                        # Same reserved status colours as everywhere else in the app
+                        # (theme.STATUS) rather than a third hardcoded copy of
+                        # "red means worse, teal means better".
                         color=alt.condition(
                             alt.datum.change_pct > 0,
-                            alt.value("#d03b3b"),
-                            alt.value("#0ca30c"),
+                            alt.value(STATUS["critical"]),
+                            alt.value(STATUS["good"]),
                         ),
                         tooltip=[
                             alt.Tooltip("scenario:N", title="Scenario"),

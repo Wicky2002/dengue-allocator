@@ -29,10 +29,10 @@ DISTRICT_NAMES = {d.district_id: d.name for d in config.DISTRICTS}
 #: imported because reportlab needs its own colors.HexColor wrapper, not a
 #: raw string, at every use site.
 _RISK_FILL = {
-    "low": colors.HexColor("#0ca30c"),
-    "moderate": colors.HexColor("#c98a00"),
-    "high": colors.HexColor("#c9633a"),
-    "severe": colors.HexColor("#d03b3b"),
+    "low": colors.HexColor("#0f766e"),
+    "moderate": colors.HexColor("#ca8a04"),
+    "high": colors.HexColor("#ea580c"),
+    "severe": colors.HexColor("#b91c1c"),
 }
 
 _INK_SECONDARY = colors.HexColor("#52514e")

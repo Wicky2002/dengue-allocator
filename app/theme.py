@@ -43,11 +43,16 @@ SEQUENTIAL_BLUE: tuple[str, ...] = (
 )
 
 # --- status, reserved: never a series colour -----------------------------
+# Same four hex values as RiskLevel.colour in dengue.platform.risk -- a
+# sequential teal-to-red ramp, not a traffic light: lightness falls
+# monotonically as severity rises, so it survives greyscale printing and a
+# red/green colour deficiency, and "critical" reads as the same red
+# everywhere in the app rather than one hue here and another on the map.
 STATUS = {
-    "good": "#0ca30c",
-    "warning": "#fab219",
-    "serious": "#ec835a",
-    "critical": "#d03b3b",
+    "good": "#0f766e",
+    "warning": "#ca8a04",
+    "serious": "#ea580c",
+    "critical": "#b91c1c",
 }
 
 # --- chrome & ink ---------------------------------------------------------
