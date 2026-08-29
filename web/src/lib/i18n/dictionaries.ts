@@ -220,27 +220,6 @@ const en: Dictionary = {
   'home.noDataTitle': 'Where no public data exists, the platform says so.',
   'home.noDataBody':
     'Live bed occupancy, ICU census, platelet stock, staffing rosters and ambulance positions are not published for Sri Lanka. Those panels render an explanation and name the feed that would enable them, rather than a plausible-looking number.',
-  'home.rolesEyebrow': 'Role-based access',
-  'home.rolesTitle': 'Four portals over one engine',
-  'home.rolesDescription':
-    'Permissions are additive by rank; scope is separate from them. A hospital administrator and an MOH officer can hold overlapping permissions while seeing entirely different rows.',
-  'home.role.public.title': 'Public',
-  'home.role.public.access': 'No account needed',
-  'home.role.public.description':
-    'Risk where you live, what the forecast means, prevention advice and nearby clinics.',
-  'home.role.hospital.title': 'Hospital staff',
-  'home.role.hospital.access': 'Staff account',
-  'home.role.hospital.description':
-    'Admission and severe-case projections, bed pressure, and supply planning for the weeks ahead.',
-  'home.role.moh.title': 'MOH / Regional officer',
-  'home.role.moh.access': 'Staff account',
-  'home.role.moh.description':
-    'Team allocation, intervention planning, scenario comparison and budget split for your district.',
-  'home.role.admin.title': 'National administrator',
-  'home.role.admin.access': 'Ministry account',
-  'home.role.admin.description':
-    'Nationwide operations, model configuration, data provenance, user management and the audit log.',
-  'home.open': 'Open',
   'home.engineEyebrow': 'The engine',
   'home.engineTitle': 'Forecast → causal effect → allocation',
   'home.engineLede':
@@ -694,27 +673,6 @@ const si: Dictionary = {
   'home.noDataTitle': 'මහජන දත්ත නොමැති තැන, වේදිකාව එසේ පවසයි.',
   'home.noDataBody':
     'සජීවී ඇඳන් හිසින් තිබීම, ICU ගණන, ප්ලේට්ලට් තොග, කාර්ය මණ්ඩල ලේඛන සහ ගිලන් රථ පිහිටීම් ශ්‍රී ලංකාව සඳහා පළ නොකෙරේ. ඒ පැනල පැහැදිලි කිරීමක් සහ එය සක්‍රීය කරන දත්ත සම්ප්‍රේෂණයක් නම් කරයි, විශ්වසනීය පෙනුමක් ඇති අගයක් නොව.',
-  'home.rolesEyebrow': 'භූමිකා පදනම් වූ ප්‍රවේශය',
-  'home.rolesTitle': 'එක් එන්ජිමක් මත වේදිකා හතරක්',
-  'home.rolesDescription':
-    'අවසර ශ්‍රේණියෙන් එකතු වේ; විෂය පථය ඉන් වෙන් වේ. රෝහල් පරිපාලකයෙකුට සහ MOH නිලධාරියෙකුට වෙනස් පේළි දකිමින් අතිච්ඡාදනය වන අවසර තිබිය හැක.',
-  'home.role.public.title': 'මහජනයා',
-  'home.role.public.access': 'ගිණුමක් අවශ්‍ය නැත',
-  'home.role.public.description':
-    'ඔබ ජීවත් වන ස්ථානයේ අවදානම, පුරෝකථනයේ අර්ථය, වැළැක්වීමේ උපදෙස් සහ ආසන්න සායන.',
-  'home.role.hospital.title': 'රෝහල් කාර්ය මණ්ඩලය',
-  'home.role.hospital.access': 'කාර්ය මණ්ඩල ගිණුම',
-  'home.role.hospital.description':
-    'ඇතුළත් කිරීම් සහ දරුණු අවස්ථා ඇස්තමේන්තු, ඇඳන් පීඩනය, සහ ඉදිරි සති සඳහා සැපයුම් සැලසුම්.',
-  'home.role.moh.title': 'MOH / ප්‍රාදේශීය නිලධාරී',
-  'home.role.moh.access': 'කාර්ය මණ්ඩල ගිණුම',
-  'home.role.moh.description':
-    'ඔබේ දිස්ත්‍රික්කය සඳහා කණ්ඩායම් වෙන් කිරීම, මැදිහත්වීම් සැලසුම්, දර්ශන සංසන්දනය සහ අයවැය බෙදීම.',
-  'home.role.admin.title': 'ජාතික පරිපාලක',
-  'home.role.admin.access': 'අමාත්‍යාංශ ගිණුම',
-  'home.role.admin.description':
-    'දේශීය මෙහෙයුම්, ආකෘති වින්‍යාසය, දත්ත මූලාශ්‍ර, පරිශීලක කළමනාකරණය සහ විගණන ලේඛනය.',
-  'home.open': 'විවෘත කරන්න',
   'home.engineEyebrow': 'එන්ජිම',
   'home.engineTitle': 'පුරෝකථනය → හේතුඵල බලපෑම → වෙන් කිරීම',
   'home.engineLede':
@@ -1165,27 +1123,6 @@ const ta: Dictionary = {
   'home.noDataTitle': 'பொதுத் தரவு இல்லாத இடத்தில், தளம் அதைத் தெரிவிக்கிறது.',
   'home.noDataBody':
     'நேரடி படுக்கை ஆக்கிரமிப்பு, ஐசியு எண்ணிக்கை, பிளேட்லெட் கையிருப்பு, பணியாளர் பட்டியல்கள் மற்றும் ஆம்புலன்ஸ் இருப்பிடங்கள் இலங்கைக்கு வெளியிடப்படவில்லை. அந்தப் பலகங்கள் ஒரு விளக்கத்தையும் அதை இயக்கக்கூடிய தரவு ஊட்டத்தையும் பெயரிடுகின்றன, நம்பகமான தோற்றமுடைய எண்ணை அல்ல.',
-  'home.rolesEyebrow': 'பங்கு அடிப்படையிலான அணுகல்',
-  'home.rolesTitle': 'ஒரு இயந்திரத்தின் மேல் நான்கு தளங்கள்',
-  'home.rolesDescription':
-    'அனுமதிகள் தரவரிசையால் கூட்டப்படும்; வரம்பு அவற்றிலிருந்து தனியானது. ஒரு மருத்துவமனை நிர்வாகியும் ஒரு MOH அதிகாரியும் முற்றிலும் வேறுபட்ட வரிசைகளைக் காணும்போது ஒன்றுடன் ஒன்று சேரும் அனுமதிகளை வைத்திருக்கலாம்.',
-  'home.role.public.title': 'பொது மக்கள்',
-  'home.role.public.access': 'கணக்கு தேவையில்லை',
-  'home.role.public.description':
-    'நீங்கள் வாழும் இடத்தில் அபாயம், முன்னறிவிப்பின் பொருள், தடுப்பு ஆலோசனை மற்றும் அருகிலுள்ள மருந்தகங்கள்.',
-  'home.role.hospital.title': 'மருத்துவமனை ஊழியர்',
-  'home.role.hospital.access': 'ஊழியர் கணக்கு',
-  'home.role.hospital.description':
-    'அனுமதி மற்றும் கடுமையான நோய் மதிப்பீடுகள், படுக்கை அழுத்தம், மற்றும் வரும் வாரங்களுக்கான வழங்கல் திட்டமிடல்.',
-  'home.role.moh.title': 'MOH / பிராந்திய அதிகாரி',
-  'home.role.moh.access': 'ஊழியர் கணக்கு',
-  'home.role.moh.description':
-    'உங்கள் மாவட்டத்திற்கான குழு ஒதுக்கீடு, தலையீட்டுத் திட்டமிடல், சூழ்நிலை ஒப்பீடு மற்றும் பட்ஜெட் பிரிவு.',
-  'home.role.admin.title': 'தேசிய நிர்வாகி',
-  'home.role.admin.access': 'அமைச்சு கணக்கு',
-  'home.role.admin.description':
-    'நாடு தழுவிய செயல்பாடுகள், மாதிரி உள்ளமைவு, தரவு மூல தகவல், பயனர் மேலாண்மை மற்றும் தணிக்கை பதிவு.',
-  'home.open': 'திற',
   'home.engineEyebrow': 'இயந்திரம்',
   'home.engineTitle': 'முன்னறிவிப்பு → காரண விளைவு → ஒதுக்கீடு',
   'home.engineLede':

@@ -1,13 +1,9 @@
-import Link from 'next/link';
 import {
   ArrowRightIcon,
   BeakerIcon,
-  BuildingOffice2Icon,
   ChartBarSquareIcon,
-  Cog6ToothIcon,
   MapPinIcon,
   ShieldCheckIcon,
-  UserGroupIcon,
 } from '@heroicons/react/24/outline';
 
 import { Container } from '@/components/ui/Container';
@@ -269,70 +265,6 @@ export default async function HomePage() {
             <span className="font-semibold">{t('home.noDataTitle')}</span>{' '}
             {t('home.noDataBody')}
           </Callout>
-        </Container>
-      </section>
-
-      {/* ---------------------------------------------------------------- */}
-      {/* Role portals                                                      */}
-      {/* ---------------------------------------------------------------- */}
-      <section className="py-14 sm:py-20">
-        <Container>
-          <SectionHeading
-            eyebrow={t('home.rolesEyebrow')}
-            title={t('home.rolesTitle')}
-            description={t('home.rolesDescription')}
-          />
-
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              {
-                icon: UserGroupIcon,
-                titleKey: 'home.role.public.title',
-                href: '/public',
-                accessKey: 'home.role.public.access',
-                descriptionKey: 'home.role.public.description',
-              },
-              {
-                icon: BuildingOffice2Icon,
-                titleKey: 'home.role.hospital.title',
-                href: '/hospital',
-                accessKey: 'home.role.hospital.access',
-                descriptionKey: 'home.role.hospital.description',
-              },
-              {
-                icon: ChartBarSquareIcon,
-                titleKey: 'home.role.moh.title',
-                href: '/moh',
-                accessKey: 'home.role.moh.access',
-                descriptionKey: 'home.role.moh.description',
-              },
-              {
-                icon: Cog6ToothIcon,
-                titleKey: 'home.role.admin.title',
-                href: '/admin',
-                accessKey: 'home.role.admin.access',
-                descriptionKey: 'home.role.admin.description',
-              },
-            ].map((portal) => (
-              <Card key={portal.href} padding="lg" accent="state" interactive className="flex flex-col">
-                <span className="grid h-11 w-11 place-items-center rounded-sm bg-primary-50 text-primary-700">
-                  <portal.icon className="h-6 w-6" aria-hidden />
-                </span>
-                <h3 className="mt-4 text-h3">{t(portal.titleKey)}</h3>
-                <p className="mt-2 flex-1 text-sm leading-relaxed text-text-600">{t(portal.descriptionKey)}</p>
-                <div className="mt-5 flex items-center justify-between border-t border-border pt-4">
-                  <span className="text-xs font-medium text-text-500">{t(portal.accessKey)}</span>
-                  <Link
-                    href={portal.href}
-                    className="inline-flex items-center gap-1 text-sm font-semibold text-primary-700 hover:underline"
-                  >
-                    {t('home.open')}
-                    <ArrowRightIcon className="h-4 w-4" aria-hidden />
-                  </Link>
-                </div>
-              </Card>
-            ))}
-          </div>
         </Container>
       </section>
 
