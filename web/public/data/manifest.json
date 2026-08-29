@@ -1,0 +1,24 @@
+{
+  "exported": {
+    "pipeline_meta": 1,
+    "district_risk": 75,
+    "panel_recent": 2600,
+    "forecasts": 75,
+    "scores": 480,
+    "effect_table": 325,
+    "allocation_sweep": 1400,
+    "allocation_summary": 56,
+    "sei_sir_params": 25,
+    "hospital_readiness": 75,
+    "district_capacity": 25,
+    "health_facilities": 1233,
+    "scenarios": 64,
+    "budget_sweep": 80,
+    "predictions_history": 675,
+    "assessments": 225,
+    "districts": 25,
+    "districts.geojson": 1,
+    "national-overview PDFs": 3,
+    "constants": 1
+  }
+}

@@ -186,7 +186,10 @@ cd dengue-allocator
 make setup       # venv + pinned deps (uses uv when available, else venv+pip)
 make baseline    # Stage 1 backtest — prints the model comparison table
 make pipeline    # all 3 stages — writes every dashboard artifact
-make app         # launch the dashboard
+make app         # launch the Streamlit dashboard
+
+make web-setup   # npm install for the Next.js front end (first run only)
+make web         # launch the Next.js front end on :3000
 ```
 
 **Both `make baseline` and `make pipeline` run fully offline** against a synthetic
@@ -199,6 +202,23 @@ panel: no network, no API keys, no manual steps.
 > dated snapshot: the app prints its pipeline run time and panel date range on
 > every page. Refresh them with `make data && make panel && make pipeline-real`.
 > Source data under `data/` is still never committed.
+
+### Two front ends over one engine
+
+The platform ships two interfaces over the same artifacts:
+
+| | `make app` | `make web` |
+|---|---|---|
+| Stack | Streamlit (Python) | Next.js 15 + TypeScript + Tailwind |
+| Reads | `artifacts/*.parquet` directly | `web/public/data/*.json`, written by `make export-web` |
+| Role | Reference implementation, reproducible from one command | The product UI: role-scoped routes, real sign-in, shareable URLs, Sinhala/English/Tamil |
+
+Neither computes at request time. `make web` re-runs the export first, so the
+browser always reflects the most recent pipeline run; **after any `make pipeline`
+run, re-export before serving** (`make export-web`). Risk thresholds, the
+role/permission matrix, provenance tiers and clinical-ratio defaults are
+generated into the front end from the engine rather than retyped there — see
+`web/README.md`.
 
 To run against real data:
 
@@ -221,6 +241,10 @@ make pipeline-real   # all 3 stages against the real panel
 | `make test` | Run the test suite (no network, no slow GA end-to-end test) |
 | `make lint` | ruff check + format check |
 | `make app` | Launch the Streamlit dashboard |
+| `make export-web` | Serialise `artifacts/*.parquet` to `web/public/data/*.json` |
+| `make web-setup` | Install the Next.js dependencies |
+| `make web` | Export, then launch the Next.js front end |
+| `make web-build` | Export, then produce a production build of the front end |
 
 <details>
 <summary><b>No <code>make</code> on your machine? (Windows without Git Bash / MSYS)</b></summary>

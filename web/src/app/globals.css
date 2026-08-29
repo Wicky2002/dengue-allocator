@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-bg-100 font-body text-[15px] leading-relaxed text-text-700 antialiased;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-heading text-text-900;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* One visible focus ring everywhere. A tool used under time pressure is used
+     by keyboard as often as by mouse. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-offset-2 ring-primary-600;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  @media print {
+    /* This platform's output gets printed and tabled in meetings. */
+    body { @apply bg-white text-black; }
+    header, footer, nav { display: none !important; }
+  }
+}
+
+@layer components {
+  /* Tabular figures wherever a number is compared against another number:
+     proportional digits make a ranked column impossible to scan down. */
+  .num {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
+
+  /* Section eyebrow: small caps over a short national rule. */
+  .eyebrow {
+    @apply text-eyebrow uppercase text-primary-600;
+  }
+
+  /* The gold hairline that separates official bands, as on a printed circular. */
+  .rule-gold {
+    background-image: linear-gradient(to right, #E9A400 0%, #E9A400 96px, transparent 96px);
+  }
+
+  .surface {
+    @apply border border-border bg-white shadow-card;
+  }
+
+  /* Flat institutional navy. No gradient blobs: a state notice is not a
+     product landing page. */
+  .band-navy {
+    @apply bg-primary-800 text-white;
+  }
+}

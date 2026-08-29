@@ -101,6 +101,10 @@ desktop.ini
 
 # --- streamlit ---
 .streamlit/secrets.toml
+# Also ignore a stray copy at the repo root: Streamlit does not read secrets
+# from there (it looks in .streamlit/), so a file left there is all risk and no
+# effect -- it holds live keys while sitting outside the rule above.
+/secrets.toml
 
 # local run logs
 *.log
