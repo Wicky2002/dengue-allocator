@@ -109,3 +109,11 @@ desktop.ini
 # local run logs
 *.log
 .claude
+
+# Local AI-tool configuration: an MCP server pointer, installed agent skills,
+# and their lockfile. Same category as .claude above -- state for whichever
+# coding assistant a given machine happens to use, not something the app
+# depends on or that should differ commit-to-commit as tooling changes.
+.mcp.json
+.agents/
+skills-lock.json
