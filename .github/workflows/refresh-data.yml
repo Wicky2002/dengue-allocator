@@ -41,9 +41,11 @@ jobs:
     # 30 minutes -- confirmed by run 33268245478, killed mid-WER-download at
     # the timeout. Once the cache below is warm, later runs only fetch what's
     # new (a handful of records) and should again finish in a couple of
-    # minutes; 90 is headroom for the one-time cold run and for a source
-    # being genuinely slow one day, not the steady-state expectation.
-    timeout-minutes: 90
+    # minutes; 120 is headroom for the one-time cold run (retried Open-Meteo
+    # handshakes alone cost that run ~15 minutes before it gave up and moved
+    # on to WER) and for a source being genuinely slow one day, not the
+    # steady-state expectation.
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
 
