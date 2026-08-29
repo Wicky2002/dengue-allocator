@@ -99,6 +99,16 @@ def _load_principal(client, user_id: str, email: str) -> Principal:
             "create one (see supabase/schema.sql) before this account can log in."
         )
     row = rows[0]
+    # `active` defaults true at the database level (see
+    # supabase/account_management.sql) -- .get(..., True) only matters for a
+    # project that hasn't run that migration yet, where the column doesn't
+    # exist in the row at all.
+    if not row.get("active", True):
+        raise AuthError(
+            f"Account {email} has been deactivated. Ask an administrator to "
+            "reactivate it if this is unexpected."
+        )
+
     try:
         role = Role(row["role"])
     except ValueError as exc:
