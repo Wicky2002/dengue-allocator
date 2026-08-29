@@ -17,10 +17,12 @@
  */
 
 import { revalidatePath } from 'next/cache';
+import { headers } from 'next/headers';
 
 import { getSession } from '@/lib/session';
 import { getSupabaseAdminClient } from '@/lib/supabase/admin';
 import { logAuditEvent } from '@/lib/audit';
+import { sendEmail } from '@/lib/email';
 import { ROLES, isDistrictScopedRole, type RoleKey } from '@/lib/rbac';
 
 export interface AccountActionState {
@@ -28,6 +30,38 @@ export interface AccountActionState {
   success: string | null;
   /** Only set once, by createAccount, so the admin can copy it before it's gone. */
   temporaryPassword?: string;
+  /** Set alongside temporaryPassword once createAccount has tried to email it. */
+  emailSent?: boolean;
+}
+
+/** Best-effort: the host a link in an email should point back to. */
+async function siteOrigin(): Promise<string> {
+  const h = await headers();
+  const host = h.get('x-forwarded-host') ?? h.get('host') ?? 'localhost:3000';
+  const proto = h.get('x-forwarded-proto') ?? (host.includes('localhost') ? 'http' : 'https');
+  return `${proto}://${host}`;
+}
+
+function credentialsEmailHtml({
+  displayName,
+  email,
+  password,
+  signInUrl,
+}: {
+  displayName: string;
+  email: string;
+  password: string;
+  signInUrl: string;
+}): string {
+  return (
+    `<p>An account was created for you on DengueSentinel, ${displayName}.</p>` +
+    `<p><strong>Email:</strong> ${email}<br/>` +
+    `<strong>Temporary password:</strong> ${password}</p>` +
+    `<p>Sign in at <a href="${signInUrl}">${signInUrl}</a> — you will be asked to set your ` +
+    `own password before you can do anything else.</p>` +
+    `<p style="color:#666;font-size:12px">This password works once. If you did not expect ` +
+    `this account, contact your administrator instead of signing in.</p>`
+  );
 }
 
 const EMPTY: AccountActionState = { error: null, success: null };
@@ -99,6 +133,12 @@ export async function createAccount(
     email,
     password,
     email_confirm: true,
+    // Read by middleware on every request: while true, it redirects the
+    // account to /change-password regardless of which page it asked for,
+    // so a temporary password can never double as a permanent one. Cleared
+    // by change-password/actions.ts's own updateUser call, which is the only
+    // other place that ever writes it.
+    user_metadata: { must_change_password: true },
   });
   if (createError || !created.user) {
     return { ...EMPTY, error: `Could not create the account: ${createError?.message ?? 'unknown error'}` };
@@ -128,11 +168,28 @@ export async function createAccount(
     metadata: { created_email: email, role, districts },
   });
 
+  const signInUrl = `${await siteOrigin()}/signin`;
+  const { sent, error: emailError } = await sendEmail({
+    to: email,
+    subject: 'Your DengueSentinel account',
+    html: credentialsEmailHtml({ displayName, email, password, signInUrl }),
+  });
+  if (!sent) {
+    // Not fatal -- the account exists and the password is still returned
+    // below for the admin to copy and hand over out of band. Logged, not
+    // surfaced raw to the admin: same reasoning as every other place this
+    // app keeps a provider error out of a user-facing message.
+    console.error(`[accounts] credentials email to ${email} failed: ${emailError}`);
+  }
+
   revalidatePath('/admin');
   return {
     error: null,
-    success: `Account created for ${email}.`,
+    success: sent
+      ? `Account created for ${email}. An email with sign-in instructions has been sent.`
+      : `Account created for ${email}.`,
     temporaryPassword: password,
+    emailSent: sent,
   };
 }
 

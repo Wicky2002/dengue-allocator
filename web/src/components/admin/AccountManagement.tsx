@@ -358,8 +358,19 @@ function CreateAccountDialog({
     return (
       <DialogShell title="Account created" onClose={onClose}>
         <Callout tone="success" title={state.success ?? 'Account created.'}>
-          Copy this temporary password now and hand it to the account holder out of band (not
-          email) — it is shown only this once and this app does not store it.
+          {state.emailSent ? (
+            <>
+              The account holder can also be given this password directly as a backup, in case
+              the email doesn&rsquo;t arrive — it is shown only this once and this app does not
+              store it.
+            </>
+          ) : (
+            <>
+              The email could not be sent automatically. Copy this temporary password now and
+              hand it to the account holder out of band — it is shown only this once and this
+              app does not store it.
+            </>
+          )}
         </Callout>
         <div className="mt-4 flex items-center gap-2 rounded-sm border border-border bg-bg-100 p-3">
           <code className="flex-1 break-all font-mono text-sm">{state.temporaryPassword}</code>
@@ -422,7 +433,9 @@ function CreateAccountDialog({
         />
 
         <p className="text-xs text-text-500">
-          A temporary password is generated automatically and shown once, after creation.
+          A temporary password is generated automatically and emailed to this address if
+          available; it&rsquo;s also shown once here as a backup. The account holder is asked to
+          set their own password the first time they sign in.
         </p>
 
         <button

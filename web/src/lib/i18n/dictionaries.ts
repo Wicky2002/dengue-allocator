@@ -490,6 +490,19 @@ const en: Dictionary = {
   'notice.rolesMoh': 'MOH officers, regional health officers and national administrators',
   'notice.rolesHospital': 'hospital staff, MOH officers and national administrators',
   'notice.rolesAdmin': 'national administrators',
+
+  // --- Forced password change (first sign-in with a temporary password) ------
+  'changePassword.title': 'Set a new password',
+  'changePassword.description':
+    'For security, choose your own password before continuing — this account was created with a temporary one.',
+  'changePassword.newPasswordLabel': 'New password',
+  'changePassword.confirmPasswordLabel': 'Confirm new password',
+  'changePassword.submit': 'Set password and continue',
+  'changePassword.submitting': 'Saving…',
+  'changePassword.error.tooShort': 'Password must be at least 8 characters.',
+  'changePassword.error.mismatch': 'Passwords do not match.',
+  'changePassword.error.notSignedIn': 'You need to sign in first.',
+  'changePassword.error.generic': 'Could not set the new password. Please try again.',
 };
 
 const si: Dictionary = {
@@ -948,6 +961,19 @@ const si: Dictionary = {
   'notice.rolesMoh': 'MOH නිලධාරීන්, ප්‍රාදේශීය සෞඛ්‍ය නිලධාරීන් සහ ජාතික පරිපාලකයන්',
   'notice.rolesHospital': 'රෝහල් කාර්ය මණ්ඩලය, MOH නිලධාරීන් සහ ජාතික පරිපාලකයන්',
   'notice.rolesAdmin': 'ජාතික පරිපාලකයන්',
+
+  // --- Forced password change -------------------------------------------------
+  'changePassword.title': 'නව මුරපදයක් සකසන්න',
+  'changePassword.description':
+    'ආරක්ෂාව සඳහා, ඉදිරියට යාමට පෙර ඔබේම මුරපදයක් තෝරන්න — මෙම ගිණුම තාවකාලික මුරපදයකින් නිර්මාණය කරන ලදී.',
+  'changePassword.newPasswordLabel': 'නව මුරපදය',
+  'changePassword.confirmPasswordLabel': 'නව මුරපදය තහවුරු කරන්න',
+  'changePassword.submit': 'මුරපදය සකසා ඉදිරියට යන්න',
+  'changePassword.submitting': 'සුරකිමින්…',
+  'changePassword.error.tooShort': 'මුරපදයේ අවම වශයෙන් අක්ෂර 8ක් තිබිය යුතුය.',
+  'changePassword.error.mismatch': 'මුරපද නොගැලපේ.',
+  'changePassword.error.notSignedIn': 'ඔබ මුලින්ම පිවිසිය යුතුය.',
+  'changePassword.error.generic': 'නව මුරපදය සැකසිය නොහැකි විය. නැවත උත්සාහ කරන්න.',
 };
 
 const ta: Dictionary = {
@@ -1407,6 +1433,19 @@ const ta: Dictionary = {
   'notice.rolesMoh': 'MOH அதிகாரிகள், பிராந்திய சுகாதார அதிகாரிகள் மற்றும் தேசிய நிர்வாகிகள்',
   'notice.rolesHospital': 'மருத்துவமனை ஊழியர்கள், MOH அதிகாரிகள் மற்றும் தேசிய நிர்வாகிகள்',
   'notice.rolesAdmin': 'தேசிய நிர்வாகிகள்',
+
+  // --- Forced password change -------------------------------------------------
+  'changePassword.title': 'புதிய கடவுச்சொல்லை அமைக்கவும்',
+  'changePassword.description':
+    'பாதுகாப்பிற்காக, தொடர்வதற்கு முன் உங்கள் சொந்த கடவுச்சொல்லைத் தேர்ந்தெடுக்கவும் — இந்த கணக்கு ஒரு தற்காலிக கடவுச்சொல்லுடன் உருவாக்கப்பட்டது.',
+  'changePassword.newPasswordLabel': 'புதிய கடவுச்சொல்',
+  'changePassword.confirmPasswordLabel': 'புதிய கடவுச்சொல்லை உறுதிப்படுத்தவும்',
+  'changePassword.submit': 'கடவுச்சொல்லை அமைத்து தொடரவும்',
+  'changePassword.submitting': 'சேமிக்கிறது…',
+  'changePassword.error.tooShort': 'கடவுச்சொல் குறைந்தது 8 எழுத்துக்கள் இருக்க வேண்டும்.',
+  'changePassword.error.mismatch': 'கடவுச்சொற்கள் பொருந்தவில்லை.',
+  'changePassword.error.notSignedIn': 'நீங்கள் முதலில் உள்நுழைய வேண்டும்.',
+  'changePassword.error.generic': 'புதிய கடவுச்சொல்லை அமைக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.',
 };
 
 export const DICTIONARIES: Record<Locale, Dictionary> = { en, si, ta };

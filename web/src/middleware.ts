@@ -158,7 +158,25 @@ export async function middleware(request: NextRequest) {
 
   // Touching the user is what performs the refresh; the result is read by the
   // pages through their own server client.
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // A temporary password (set at account creation or by an admin's reset)
+  // carries this flag until change-password/actions.ts's own updateUser call
+  // clears it. Enforced here rather than per-page so it applies uniformly --
+  // every staff route, and the public ones too, since a citizen never has
+  // this flag set at all. /change-password itself is excluded so the account
+  // can actually reach the form that clears it.
+  if (user?.user_metadata?.must_change_password && request.nextUrl.pathname !== '/change-password') {
+    const redirectResponse = NextResponse.redirect(new URL('/change-password', request.url));
+    // Carries over the refreshed session cookies set above -- a plain
+    // NextResponse.redirect() otherwise starts from an empty cookie jar.
+    for (const cookie of response.cookies.getAll()) {
+      redirectResponse.cookies.set(cookie);
+    }
+    response = redirectResponse;
+  }
 
   response = applyLocale(request, response);
   return finish(response);
