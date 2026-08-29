@@ -6,35 +6,42 @@ import { Container } from '@/components/ui/Container';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Callout } from '@/components/ui/Callout';
+import { getT } from '@/lib/i18n/server';
 
 /**
  * Rendered in place of a staff portal when the viewer may not see it.
  *
  * Says which role the page needs and offers the public view, rather than
  * redirecting: a citizen who followed a link here should land somewhere useful,
- * not be bounced to a login they have no account for.
+ * not be bounced to a login they have no account for. Reachable by anyone
+ * following an old link or bookmark, so unlike the staff portals themselves
+ * this is translated -- `portalKey` and `requiredRolesKey` are dictionary
+ * keys, not literal text, resolved here rather than passed pre-translated so
+ * every caller stays a plain server component.
  */
-export function AccessNotice({
-  portal,
-  requiredRoles,
+export async function AccessNotice({
+  portalKey,
+  requiredRolesKey,
   signedIn,
   configurationError,
 }: {
-  portal: string;
-  requiredRoles: string;
+  portalKey: string;
+  requiredRolesKey: string;
   signedIn: boolean;
   configurationError?: string | null;
 }) {
+  const t = await getT();
+  const portal = t(portalKey);
+
   return (
     <Container className="py-20">
       <Card padding="lg" className="mx-auto max-w-xl text-center">
         <span className="mx-auto grid h-12 w-12 place-items-center rounded-sm bg-bg-200 text-text-600">
           <LockClosedIcon className="h-6 w-6" aria-hidden />
         </span>
-        <h1 className="text-h1 mt-5">{portal} is staff-only</h1>
+        <h1 className="text-h1 mt-5">{t('notice.staffOnlyTemplate').replace('{portal}', portal)}</h1>
         <p className="mt-3 text-text-600">
-          This portal is available to {requiredRoles}. Public risk information for every
-          district needs no account at all.
+          {t('notice.availableToTemplate').replace('{roles}', t(requiredRolesKey))}
         </p>
 
         {configurationError ? (
@@ -44,18 +51,18 @@ export function AccessNotice({
         ) : null}
 
         <div className="mt-7 flex flex-wrap justify-center gap-3">
-          {!signedIn ? <Button href="/signin">Staff sign in</Button> : null}
+          {!signedIn ? <Button href="/signin">{t('nav.signIn')}</Button> : null}
           <Button href="/public" variant="outline">
-            Check a district instead
+            {t('notice.checkDistrict')}
           </Button>
         </div>
 
         <p className="mt-6 text-xs text-text-500">
-          Public data here is a deny-by-default subset, not a redaction — these pages are
-          built from the permissions a role actually holds, so a bug shows missing
-          information rather than exposing hospital occupancy.{' '}
+          {t('notice.footerPrefix')}
+          <strong>{t('notice.footerBold')}</strong>
+          {t('notice.footerSuffix')}{' '}
           <Link href="/method" className="text-primary-700 hover:underline">
-            How access works
+            {t('notice.howAccessWorks')}
           </Link>
         </p>
       </Card>

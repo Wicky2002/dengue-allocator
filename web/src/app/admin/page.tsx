@@ -48,8 +48,8 @@ export default async function AdminPage() {
   if (!can(session.principal, 'view_national_operations')) {
     return (
       <AccessNotice
-        portal="Administration"
-        requiredRoles="national administrators"
+        portalKey="nav.admin"
+        requiredRolesKey="notice.rolesAdmin"
         signedIn={session.signedIn}
         configurationError={session.configurationError}
       />

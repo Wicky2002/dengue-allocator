@@ -9,6 +9,7 @@ import { Callout } from '@/components/ui/Callout';
 import { SignInForm } from '@/components/auth/SignInForm';
 import { getSession, isAuthConfigured } from '@/lib/session';
 import { ROLES } from '@/lib/rbac';
+import { getT } from '@/lib/i18n/server';
 
 /**
  * Never prerendered.
@@ -33,6 +34,8 @@ export default async function SignInPage() {
   const session = await getSession();
   if (session.signedIn && !session.configurationError) redirect('/national');
 
+  const t = await getT();
+
   return (
     <Container className="py-16">
       <div className="mx-auto grid max-w-5xl gap-10 lg:grid-cols-2">
@@ -40,14 +43,13 @@ export default async function SignInPage() {
           <span className="grid h-12 w-12 place-items-center rounded-sm bg-primary-50 text-primary-700">
             <LockClosedIcon className="h-6 w-6" aria-hidden />
           </span>
-          <h1 className="text-h1 mt-5">Staff sign in</h1>
+          <h1 className="text-h1 mt-5">{t('nav.signIn')}</h1>
           <p className="mt-3 leading-relaxed text-text-600">
-            Public risk information needs no account —{' '}
+            {t('signin.introPrefix')}
             <Link href="/public" className="font-medium text-primary-700 hover:underline">
-              check your district
-            </Link>{' '}
-            without signing in. An account is for hospital, MOH and Ministry staff, and
-            determines both what you can do and which districts you can see.
+              {t('signin.introLink')}
+            </Link>
+            {t('signin.introSuffix')}
           </p>
 
           <dl className="mt-8 space-y-4">
@@ -81,9 +83,7 @@ export default async function SignInPage() {
             <SignInForm />
 
             <p className="mt-6 border-t border-border pt-4 text-xs leading-relaxed text-text-500">
-              Accounts are created by a national administrator, not by self-registration.
-              Access is scoped to your own facility or district — signing in does not widen
-              what the platform will show you beyond that.
+              {t('signin.footerNote')}
             </p>
           </Card>
         </div>

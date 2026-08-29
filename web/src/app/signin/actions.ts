@@ -46,7 +46,11 @@ export async function signIn(_prev: SignInState, formData: FormData): Promise<Si
   const email = String(formData.get('email') ?? '').trim();
   const password = String(formData.get('password') ?? '');
   if (!email || !password) {
-    return { error: 'Enter your email address and password.' };
+    // A dictionary key, not literal text: SignInForm (a client component, so
+    // it knows the viewer's language) translates it via useT(). The
+    // config-not-set messages above stay literal English on purpose -- they
+    // are operator diagnostics, not something a real visitor should see.
+    return { error: 'signin.error.missingFields' };
   }
 
   const ip = await clientIp();
@@ -59,7 +63,7 @@ export async function signIn(_prev: SignInState, formData: FormData): Promise<Si
     (await isRateLimited(`signin:ip:${ip}`, MAX_ATTEMPTS, WINDOW_MS))
   ) {
     console.error(`[auth] rate-limited sign-in attempt for ${email} from ${ip}`);
-    return { error: 'Too many attempts. Wait a few minutes and try again.' };
+    return { error: 'signin.error.rateLimited' };
   }
 
   const supabase = await getSupabaseServerClient();
@@ -74,7 +78,7 @@ export async function signIn(_prev: SignInState, formData: FormData): Promise<Si
     console.error(
       `[auth] sign-in failed for ${email}: ${error.message} (status ${error.status ?? 'n/a'}, code ${error.code ?? 'n/a'})`,
     );
-    return { error: 'Those credentials were not accepted. Check your email and password.' };
+    return { error: 'signin.error.invalidCredentials' };
   }
 
   // Logged after the sign-in itself succeeds, using the session it just

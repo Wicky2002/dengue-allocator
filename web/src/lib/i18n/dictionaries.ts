@@ -345,6 +345,151 @@ const en: Dictionary = {
   'prov.modelled': 'Modelled',
   'prov.assumed': 'Planning estimate',
   'prov.user_input': 'Entered by you',
+
+  // --- Method page ----------------------------------------------------------
+  'method.crumb': 'How it works',
+  'method.eyebrow': 'Method',
+  'method.title': 'How this platform decides anything',
+  'method.description':
+    'Three stages, each answering a question the previous one cannot. Knowing which district will have the most cases is not the same as knowing where a team averts the most.',
+  'method.metaPanel': 'Panel',
+  'method.metaDistrictWeeks': 'District-weeks',
+  'method.metaLastRun': 'Last run',
+  'method.engineEyebrow': 'The engine',
+  'method.engineTitle': 'Forecast → causal effect → allocation',
+  'method.engineDescription':
+    'Each stage writes an artifact. The dashboard reads those artifacts and never recomputes them, which is why moving a slider here is instant during an outbreak.',
+  'method.stage1': 'Stage 1',
+  'method.stage1Title': 'Probabilistic district forecasts',
+  'method.stage1Body':
+    'A quantile model produces a median and an 80% interval for each district, two to four weeks ahead. Every baseline — seasonal naive, SARIMA, gradient boosting — is refit at each rolling-origin fold, so no model ever sees data from after the week it is predicting. The comparison table on the national overview is that backtest, not a claim.',
+  'method.stage1DetailTemplate': 'Best on {metric} at 2 weeks: {list}.',
+  'method.stage2': 'Stage 2',
+  'method.stage2Title': 'Mechanistic intervention effect',
+  'method.stage2Body':
+    'A compartmental SEI-SIR model is fitted per district against that district’s own history, then re-integrated with vector control applied. The difference between the two integrations is the cases averted for a given number of team-weeks — a causal quantity, not a correlation read off the forecast.',
+  'method.stage2DetailTemplate':
+    'Effects are computed over a {horizon}-week horizon and cached as a curve per district, which is what makes the marginal return of the next team-week available instantly.',
+  'method.stage3': 'Stage 3',
+  'method.stage3Title': 'Constrained allocation',
+  'method.stage3Body':
+    'An integer programme distributes a fixed weekly team budget to maximise total expected cases averted, subject to the effect curves from Stage 2 and an equity floor for facility-poor districts. The floor is what stops the optimiser from writing off small, under-served districts whose absolute case counts can never compete with Colombo’s.',
+  'method.stage3Detail':
+    'The whole budget sweep is solved offline and cached, so the budget slider indexes solutions rather than re-solving.',
+  'method.whyForecastEyebrow': 'Why forecast at all',
+  'method.whyForecastTitle': 'Reacting to notifications is reacting to a fortnight-old picture',
+  'method.whyForecastBody1':
+    'By the time a surge appears in weekly notification data, transmission has already been running for two to three weeks: a mosquito acquires the virus, the extrinsic incubation period passes, a person is infected, the intrinsic incubation period passes, they seek care, and the case is notified. Teams dispatched at that point are treating a wave that has already broken.',
+  'method.whyForecastBody2':
+    'Rainfall is what makes an earlier signal possible. Rain fills containers, larvae develop, adults emerge, and only then does transmission rise — a lag of roughly six to eight weeks that the forecast exploits.',
+  'method.riskBandsEyebrow': 'Risk bands',
+  'method.riskBandsTitle': 'Why incidence, not case counts',
+  'method.riskBandsDescription':
+    'Colombo has 2.48 million residents and Mullaitivu around 100,000. Ranking districts by raw counts would paint Colombo red every week of the year and leave a genuine Mullaitivu outbreak green.',
+  'method.riskBandBelow': 'Below 1.5',
+  'method.riskBandAndAboveTemplate': '{threshold} and above',
+  'method.riskBandPerWeek': 'per 100,000 per week',
+  'method.riskBandsCalloutPrefix': 'These are ',
+  'method.riskBandsCalloutBold': 'operational planning thresholds, not a clinical standard',
+  'method.riskBandsCalloutSuffix':
+    '. No internationally agreed incidence cut-off defines a dengue outbreak — published thresholds are endemicity-specific and usually derived per country. They were recalibrated against the real district-week distribution, and they are exposed as constants so they can be recalibrated again.',
+  'method.provenanceEyebrow': 'Provenance',
+  'method.provenanceTitle': 'Every quantity states what it is',
+  'method.provenanceDescription':
+    'Enforced in code, not by discipline: a quantity tagged as a planning estimate cannot be constructed in the engine without stating its basis.',
+  'method.provenanceCalloutBold': 'Where no public data exists, the platform says so.',
+  'method.provenanceCalloutSuffix':
+    ' Live bed occupancy, ICU census, platelet stock, staffing rosters and ambulance positions are not published for Sri Lanka. Those panels render an explanation and name the feed that would enable them, rather than a number that looks plausible.',
+  'method.accessEyebrow': 'Access',
+  'method.accessTitle': 'Permissions are additive; scope is separate',
+  'method.accessDescription':
+    'A hospital administrator and an MOH officer can hold overlapping permissions while seeing entirely different rows — one is scoped to a facility, the other to a district. Collapsing the two into a single level is the usual way a health dashboard leaks data across regions.',
+  'method.permissionsCountTemplate': '{n} permissions',
+  'method.accessCalloutPrefix': 'The public pages are a ',
+  'method.accessCalloutBold': 'deny-by-default subset, not a redaction',
+  'method.accessCalloutSuffix':
+    '. They are built from permissions the public role actually holds, rather than by computing the full picture and hiding parts of it — so a bug here shows missing information rather than exposing hospital occupancy.',
+  'method.decisionSupportTitle': 'Decision support, not a clinical tool',
+  'method.decisionSupportBody':
+    'Nothing on this platform diagnoses a patient or prescribes treatment. It describes district-level risk and resource implications to help allocate finite public health capacity — and every figure it shows is only as good as the assumption stated beside it.',
+
+  // --- Data protection (PDPA) notice -----------------------------------------
+  'privacy.eyebrow': 'Legal',
+  'privacy.description':
+    'What this platform collects, why, how long it is kept, and how to ask about your own data — under Sri Lanka’s Personal Data Protection Act No. 9 of 2022.',
+  'privacy.notice':
+    'This notice describes the platform as built. If anything below stops matching what the running system actually does, the system is wrong and this notice is not — update the code, not this page, to bring them back into agreement.',
+  'privacy.controllerEyebrow': 'Controller',
+  'privacy.controllerTitle': 'Who operates this platform',
+  'privacy.controllerBody':
+    'The Ministry of Health, Sri Lanka, is the controller for the personal data described below. Requests concerning your own data — access, correction, or a question about how it is used — should be directed to the Ministry through the contact channels in the footer of this site.',
+  'privacy.collectedEyebrow': 'What is collected',
+  'privacy.collectedTitle': 'The two kinds of data on this platform',
+  'privacy.publicDataTitle': 'Public risk information',
+  'privacy.publicDataBody':
+    'District-level forecasts, case counts and risk bands. This is aggregate epidemiological data — no individual is identified or identifiable in it, and no personal data is collected from a visitor to view it. Choosing a district or a language, and any alert preference you set, is stored only in your own browser (see “Alert preferences” below) and never reaches this platform’s servers.',
+  'privacy.staffDataTitle': 'Staff accounts',
+  'privacy.staffDataBody':
+    'For hospital, district-operations and administration accounts: an email address, a display name, an assigned role, and a district or facility scope. Accounts are created by an administrator, not by self-registration, and this is the minimum needed to authenticate a member of staff and restrict what they can see to their own facility or district.',
+  'privacy.legalBasisEyebrow': 'Legal basis',
+  'privacy.legalBasisTitle': 'Why this processing is lawful',
+  'privacy.legalBasisBody':
+    'Public risk information is published in the exercise of the Ministry’s public health function — no consent is sought or needed to view it, in the same way a weekly epidemiological bulletin needs none. Staff account data is processed under the same public function, on the basis that it is necessary to operate a restricted-access system for vector-control planning; it is not used for any purpose beyond operating this platform.',
+  'privacy.auditEyebrow': 'Audit log',
+  'privacy.auditTitle': 'What is recorded about a staff sign-in',
+  'privacy.auditBody':
+    'Signing in, signing out, and viewing a staff portal are recorded — timestamp, account email, role, district scope at the time, and which page was viewed. This exists to let an administrator answer “who looked at what, and when” if that is ever needed, and is visible only to national-administrator accounts. It does not record what any account did on a page beyond which page it opened, and it is never used for performance monitoring or any purpose beyond that accountability record.',
+  'privacy.retentionEyebrow': 'Retention',
+  'privacy.retentionTitle': 'How long data is kept',
+  'privacy.retentionStaffTitle': 'Staff account records',
+  'privacy.retentionStaffBody':
+    'Kept for the lifetime of the account, and removed by an administrator when access is withdrawn.',
+  'privacy.retentionAuditTitle': 'Audit log entries',
+  'privacy.retentionAuditBodyPrefix':
+    'Deleted automatically after 365 days, once an operator has enabled the scheduled purge (',
+  'privacy.retentionAuditBodySuffix':
+    '). Until that has been run on this deployment, entries are retained indefinitely — ask your administrator whether it has been enabled.',
+  'privacy.retentionAggTitle': 'Aggregate epidemiological data',
+  'privacy.retentionAggBody':
+    'Retained as a historical record — it is never personal data, so PDPA retention limits on personal data do not apply to it.',
+  'privacy.rightsEyebrow': 'Your rights',
+  'privacy.rightsTitle': 'Access, correction, and questions',
+  'privacy.rightsBody':
+    'Under the PDPA, you may ask what personal data this platform holds about you, ask for it to be corrected if it is wrong, and ask questions about how it is used. For a staff account, the fastest route is your own administrator; for anything else, use the contact details in the footer of this site.',
+  'privacy.notCoveredTitle': 'What this notice does not cover',
+  'privacy.notCoveredBody':
+    'This page states the platform’s own data handling. It does not cover data held by the Epidemiology Unit, hospitals, or other bodies whose published statistics this platform reads and displays — those bodies are separate controllers for their own records, and requests about them should go to them directly.',
+
+  // --- Staff sign-in ----------------------------------------------------------
+  'signin.introPrefix': 'Public risk information needs no account — ',
+  'signin.introLink': 'check your district',
+  'signin.introSuffix':
+    ' without signing in. An account is for hospital, MOH and Ministry staff, and determines both what you can do and which districts you can see.',
+  'signin.footerNote':
+    'Accounts are created by a national administrator, not by self-registration. Access is scoped to your own facility or district — signing in does not widen what the platform will show you beyond that.',
+  'signin.emailLabel': 'Email address',
+  'signin.passwordLabel': 'Password',
+  'signin.showPassword': 'Show password',
+  'signin.hidePassword': 'Hide password',
+  'signin.submitting': 'Signing in…',
+  'signin.submit': 'Sign in',
+  'signin.error.missingFields': 'Enter your email address and password.',
+  'signin.error.rateLimited': 'Too many attempts. Wait a few minutes and try again.',
+  'signin.error.invalidCredentials': 'Those credentials were not accepted. Check your email and password.',
+
+  // --- Staff-portal access notice (shown to a signed-out or under-permissioned visitor) ---
+  'notice.staffOnlyTemplate': '{portal} is staff-only',
+  'notice.availableToTemplate':
+    'This portal is available to {roles}. Public risk information for every district needs no account at all.',
+  'notice.checkDistrict': 'Check a district instead',
+  'notice.footerPrefix': 'Public data here is a ',
+  'notice.footerBold': 'deny-by-default subset, not a redaction',
+  'notice.footerSuffix':
+    ' — these pages are built from the permissions a role actually holds, so a bug shows missing information rather than exposing hospital occupancy.',
+  'notice.howAccessWorks': 'How access works',
+  'notice.rolesMoh': 'MOH officers, regional health officers and national administrators',
+  'notice.rolesHospital': 'hospital staff, MOH officers and national administrators',
+  'notice.rolesAdmin': 'national administrators',
 };
 
 const si: Dictionary = {
@@ -658,6 +803,151 @@ const si: Dictionary = {
   'prov.modelled': 'ආදර්ශිත',
   'prov.assumed': 'සැලසුම් ඇස්තමේන්තුව',
   'prov.user_input': 'ඔබ ඇතුළත් කළ',
+
+  // --- Method page ----------------------------------------------------------
+  'method.crumb': 'මෙය ක්‍රියා කරන ආකාරය',
+  'method.eyebrow': 'ක්‍රමවේදය',
+  'method.title': 'මෙම වේදිකාව ඕනෑම තීරණයක් ගන්නා ආකාරය',
+  'method.description':
+    'අදියර තුනකි, එක් එක් අදියර පෙර අදියරට පිළිතුරු දිය නොහැකි ප්‍රශ්නයකට පිළිතුරු දෙයි. වැඩිම රෝගී සංඛ්‍යාව ඇති දිස්ත්‍රික්කය දැනගැනීම කණ්ඩායමකට වැඩිම ප්‍රතිලාභයක් ලබා දිය හැකි ස්ථානය දැනගැනීමට සමාන නොවේ.',
+  'method.metaPanel': 'දත්ත සමූහය',
+  'method.metaDistrictWeeks': 'දිස්ත්‍රික්-සති',
+  'method.metaLastRun': 'අවසන් ධාවනය',
+  'method.engineEyebrow': 'එන්ජිම',
+  'method.engineTitle': 'පුරෝකථනය → හේතු-සම්බන්ධ බලපෑම → සම්පත් වෙන් කිරීම',
+  'method.engineDescription':
+    'සෑම අදියරක්ම කෞතුකයක් (artifact) ලියයි. උපකරණ පුවරුව එම කෞතුක කියවන අතර ඒවා කිසි විටෙකත් නැවත ගණනය නොකරයි — එබැවින් වසංගතයක් අතරතුර මෙහි සර්පනයක් ගෙනයාම ක්ෂණිකව සිදු වේ.',
+  'method.stage1': 'අදියර 1',
+  'method.stage1Title': 'සම්භාවිතා දිස්ත්‍රික් පුරෝකථන',
+  'method.stage1Body':
+    'ක්වන්ටයිල් ආකෘතියක් සෑම දිස්ත්‍රික්කයක් සඳහාම සති දෙකේ සිට හතර දක්වා කාලයක් සඳහා මධ්‍යස්ථයක් සහ 80% පරතරයක් නිපදවයි. සෘතුමය නොවෙනස් ආකෘතිය, SARIMA, ග්‍රේඩියන්ට් බූස්ටින් ඇතුළු සෑම මූලික ආකෘතියක්ම සෑම භ්‍රමණය-මූලාරම්භක නැවුම් කිරීමකදීම නැවත සකසනු ලැබේ — එබැවින් කිසිදු ආකෘතියක් එය පුරෝකථනය කරන සතියෙන් පසු දත්ත කිසි විටෙකත් නොදකියි. ජාතික දළ විශ්ලේෂණයේ ඇති සංසන්දන වගුව එම පසුපරීක්ෂණයයි, ප්‍රකාශයක් නොවේ.',
+  'method.stage1DetailTemplate': 'සති 2දී {metric} අනුව හොඳම ප්‍රතිඵලය: {list}.',
+  'method.stage2': 'අදියර 2',
+  'method.stage2Title': 'යාන්ත්‍රික මැදිහත්වීම් බලපෑම',
+  'method.stage2Body':
+    'කොටස්-මූලික SEI-SIR ආකෘතියක් සෑම දිස්ත්‍රික්කයක්ම එහිම ඉතිහාසයට එරෙහිව සකසනු ලබන අතර, පසුව මදුරු මර්දනය යෙදූ විට නැවත ඒකාබද්ධ කරනු ලැබේ. එම ඒකාබද්ධ කිරීම් දෙක අතර වෙනස යනු නිශ්චිත කණ්ඩායම්-සති ගණනකට වළක්වා ගත් රෝගීන් සංඛ්‍යාවයි — එය හේතු-සම්බන්ධ ප්‍රමාණයකි, පුරෝකථනයෙන් කියවන සහසම්බන්ධතාවයක් නොවේ.',
+  'method.stage2DetailTemplate':
+    'බලපෑම් සති {horizon}ක කාල සීමාවක් තුළ ගණනය කර සෑම දිස්ත්‍රික්කයක් සඳහාම වක්‍රයක් ලෙස කෑෂ් කර ඇත — මෙය මීළඟ කණ්ඩායම-සතියේ අන්තර්ගත ප්‍රතිලාභය ක්ෂණිකව ලබා ගැනීමට හේතු වේ.',
+  'method.stage3': 'අදියර 3',
+  'method.stage3Title': 'සීමා සහිත සම්පත් වෙන් කිරීම',
+  'method.stage3Body':
+    'නිශ්චිත සති කණ්ඩායම් අයවැයක් අදියර 2හි බලපෑම් වක්‍ර සහ පහසුකම් අඩු දිස්ත්‍රික්කවල සාධාරණත්ව සීමාවකට යටත්ව, මුළු වළක්වා ගත් රෝගී සංඛ්‍යාව උපරිම කිරීමට නිඛිල ක්‍රමලේඛනයක් මගින් බෙදා හරිනු ලැබේ. එම සීමාව නොමැති නම්, කොළඹට කිසි විටෙකත් තරඟ කළ නොහැකි නිරපේක්ෂ රෝගී සංඛ්‍යා සහිත කුඩා, අඩු සේවා සපයන දිස්ත්‍රික්ක ප්‍රශස්තකරණය මගින් නොසලකා හරිනු ලැබේ.',
+  'method.stage3Detail':
+    'මුළු අයවැය පරාසය නොබැඳි ලෙස විසඳා කෑෂ් කර ඇත — එබැවින් අයවැය සර්පනය විසඳුම් නැවත විසඳනවා වෙනුවට ඒවා යොමු කරයි.',
+  'method.whyForecastEyebrow': 'මුලින්ම පුරෝකථනය කරන්නේ ඇයි',
+  'method.whyForecastTitle': 'දැනුම්දීම්වලට ප්‍රතිචාර දැක්වීම යනු සති දෙකක් පැරණි චිත්‍රයකට ප්‍රතිචාර දැක්වීමයි',
+  'method.whyForecastBody1':
+    'සතිපතා දැනුම්දීම් දත්තවල වර්ධනයක් පෙනෙන විට, බෝවීම දැනටමත් සති දෙක තුනක සිට සිදුවෙමින් පවතී: මදුරුවෙකු වෛරසය ලබා ගනී, බාහිර නිරෝධායන කාලය ගත වේ, පුද්ගලයෙකු ආසාදනය වේ, අභ්‍යන්තර නිරෝධායන කාලය ගත වේ, ඔවුන් ප්‍රතිකාර සොයයි, සහ රෝගය දැනුම් දෙනු ලැබේ. එම අවස්ථාවේදී යවනු ලබන කණ්ඩායම් දැනටමත් බිඳ වැටී ඇති රැල්ලකට ප්‍රතිකාර කරමින් සිටිති.',
+  'method.whyForecastBody2':
+    'වර්ෂාව මගින් වඩාත් කලින් සංඥාවක් හැකි කරයි. වර්ෂාව භාජන පුරවයි, කීටයන් වර්ධනය වේ, වැඩිහිටියන් මතු වේ, එමෙන්ම එවිට පමණි බෝවීම ඉහළ යන්නේ — පුරෝකථනය භාවිතා කරන දළ වශයෙන් සති හයේ සිට අටක් දක්වා ප්‍රමාදයකි.',
+  'method.riskBandsEyebrow': 'අවදානම් කාණ්ඩ',
+  'method.riskBandsTitle': 'රෝගී සංඛ්‍යා නොව, ව්‍යාප්තිය භාවිතා කරන්නේ ඇයි',
+  'method.riskBandsDescription':
+    'කොළඹට පදිංචිකරුවන් මිලියන 2.48ක් සිටින අතර මුලතිව්වට ආසන්න වශයෙන් 100,000ක් සිටී. දිස්ත්‍රික්ක අමු සංඛ්‍යා අනුව ශ්‍රේණිගත කිරීමෙන් වසරේ සෑම සතියකම කොළඹ රතු පැහැයෙන් පින්තාරු වන අතර සැබෑ මුලතිව් වසංගතයක් කොළ පැහැයෙන් හැරෙනු ඇත.',
+  'method.riskBandBelow': '1.5ට අඩු',
+  'method.riskBandAndAboveTemplate': '{threshold} සහ ඉහළ',
+  'method.riskBandPerWeek': '100,000කට සතියකට',
+  'method.riskBandsCalloutPrefix': 'මේවා ',
+  'method.riskBandsCalloutBold': 'මෙහෙයුම් සැලසුම් සීමා මිතියි, සායනික ප්‍රමිතියක් නොවේ',
+  'method.riskBandsCalloutSuffix':
+    '. ඩෙංගු වසංගතයක් නිර්වචනය කරන ජාත්‍යන්තරව එකඟ වූ ව්‍යාප්ති සීමා මිතියක් නොමැත — ප්‍රකාශිත සීමා මිතීන් රෝග-ව්‍යාප්ති-විශේෂිත වන අතර සාමාන්‍යයෙන් රට අනුව ව්‍යුත්පන්න වේ. ඒවා සැබෑ දිස්ත්‍රික්-සති ව්‍යාප්තියට එරෙහිව නැවත සකස් කරන ලද අතර, ඒවා නැවත සකස් කළ හැකි වන පරිදි නියතයන් ලෙස හෙළිදරව් කර ඇත.',
+  'method.provenanceEyebrow': 'මූලාරම්භය',
+  'method.provenanceTitle': 'සෑම ප්‍රමාණයක්ම එය කුමක්දැයි ප්‍රකාශ කරයි',
+  'method.provenanceDescription':
+    'විනයෙන් නොව කේතයෙන් බලාත්මක කර ඇත: සැලසුම් ඇස්තමේන්තුවක් ලෙස ලේබල් කළ ප්‍රමාණයක් එහි පදනම ප්‍රකාශ නොකර එන්ජිමේ තැනිය නොහැක.',
+  'method.provenanceCalloutBold': 'මහජන දත්ත නොමැති තැන, වේදිකාව එසේ පවසයි.',
+  'method.provenanceCalloutSuffix':
+    ' සජීවී ඇඳන් වාසය, ICU සංගණනය, ප්ලේට්ලට් තොග, කාර්ය මණ්ඩල නාම ලේඛන සහ ගිලන් රථ ස්ථාන ශ්‍රී ලංකාව සඳහා ප්‍රකාශයට පත් කර නොමැත. එම පැනල ඒවා සක්‍රීය කරන දෙනුම් සපයන්නා නම් කරමින් පැහැදිලි කිරීමක් පෙන්වයි, විශ්වසනීය පෙනෙන සංඛ්‍යාවක් නොව.',
+  'method.accessEyebrow': 'ප්‍රවේශය',
+  'method.accessTitle': 'අවසර එකතු වන සුළුය; විෂය පථය වෙනස් වේ',
+  'method.accessDescription':
+    'රෝහල් පරිපාලකයෙකුට සහ MOH නිලධාරියෙකුට එකිනෙකට වෙනස් පේළි දකිමින් අතිච්ඡාදනය වන අවසර තිබිය හැක — එකක් පහසුකමකට සීමිත වන අතර අනෙක දිස්ත්‍රික්කයකට සීමිත වේ. මේ දෙක තනි මට්ටමකට හැකිලීම සෞඛ්‍ය උපකරණ පුවරුවක් කලාප හරහා දත්ත කාන්දු කරන සාමාන්‍ය ආකාරයයි.',
+  'method.permissionsCountTemplate': 'අවසර {n}ක්',
+  'method.accessCalloutPrefix': 'මහජන පිටු යනු ',
+  'method.accessCalloutBold': 'පෙරනිමියෙන් ප්‍රතික්ෂේප කරන උප කුලකයකි, සංස්කරණයක් නොවේ',
+  'method.accessCalloutSuffix':
+    '. ඒවා සම්පූර්ණ චිත්‍රය ගණනය කර එහි කොටස් සඟවනවා වෙනුවට, මහජන භූමිකාව සැබවින්ම දරන අවසර මත ගොඩනගා ඇත — එබැවින් මෙහි දෝෂයක් රෝහල් ධාරිතාව හෙළිදරව් කරනවා වෙනුවට තොරතුරු අස්ථානගත වී ඇති බව පෙන්වයි.',
+  'method.decisionSupportTitle': 'තීරණ සහාය, සායනික මෙවලමක් නොවේ',
+  'method.decisionSupportBody':
+    'මෙම වේදිකාවේ කිසිවක් රෝගියෙකු රෝග විනිශ්චය නොකරයි හෝ ප්‍රතිකාර නියම නොකරයි. එය සීමිත මහජන සෞඛ්‍ය ධාරිතාව වෙන් කිරීමට උපකාර වීම සඳහා දිස්ත්‍රික් මට්ටමේ අවදානම සහ සම්පත් ප්‍රතිවිපාක විස්තර කරයි — සහ එය පෙන්වන සෑම ප්‍රමාණයක්ම එය අසල ප්‍රකාශිත උපකල්පනය තරම් පමණක් හොඳය.',
+
+  // --- Data protection (PDPA) notice -----------------------------------------
+  'privacy.eyebrow': 'නීතිමය',
+  'privacy.description':
+    'ශ්‍රී ලංකාවේ 2022 අංක 9 දරන පුද්ගලික දත්ත ආරක්ෂණ පනත යටතේ, මෙම වේදිකාව රැස් කරන දේ, ඇයි, කොපමණ කාලයක් තබා ගන්නේද, සහ ඔබේම දත්ත ගැන විමසන්නේ කෙසේද යන්න.',
+  'privacy.notice':
+    'මෙම නිවේදනය නිර්මාණය කරන ලද පරිදි වේදිකාව විස්තර කරයි. පහත ඇති කිසිවක් ක්‍රියාත්මක පද්ධතිය සැබවින්ම කරන දෙයට නොගැලපෙන්නේ නම්, පද්ධතිය වැරදිය මෙම නිවේදනය නොවේ — ඒවා නැවත එකඟතාවයට ගෙන ඒම සඳහා මෙම පිටුව නොව කේතය යාවත්කාලීන කරන්න.',
+  'privacy.controllerEyebrow': 'පාලකයා',
+  'privacy.controllerTitle': 'මෙම වේදිකාව මෙහෙයවන්නේ කවුරුන්ද',
+  'privacy.controllerBody':
+    'ශ්‍රී ලංකා සෞඛ්‍ය අමාත්‍යාංශය පහත විස්තර කරන පුද්ගලික දත්ත සඳහා පාලකයා වේ. ඔබේම දත්ත සම්බන්ධ ඉල්ලීම් — ප්‍රවේශය, නිවැරදි කිරීම, හෝ ඒවා භාවිතා කරන ආකාරය පිළිබඳ ප්‍රශ්නයක් — මෙම වෙබ් අඩවියේ පාදාසුරු ඇති සම්බන්ධතා මාර්ග හරහා අමාත්‍යාංශය වෙත යොමු කළ යුතුය.',
+  'privacy.collectedEyebrow': 'රැස් කරන දේ',
+  'privacy.collectedTitle': 'මෙම වේදිකාවේ ඇති දත්ත වර්ග දෙක',
+  'privacy.publicDataTitle': 'මහජන අවදානම් තොරතුරු',
+  'privacy.publicDataBody':
+    'දිස්ත්‍රික් මට්ටමේ පුරෝකථන, රෝගී සංඛ්‍යා සහ අවදානම් කාණ්ඩ. මෙය සමස්ත වසංගත රෝග විද්‍යා දත්තයකි — කිසිදු පුද්ගලයෙකු එහි හඳුනාගත නොහැක, සහ එය බැලීමට පිවිසෙන්නෙකුගෙන් කිසිදු පුද්ගලික දත්තයක් රැස් නොකරයි. දිස්ත්‍රික්කයක් හෝ භාෂාවක් තෝරා ගැනීම, සහ ඔබ සකසන ඕනෑම දැනුම්දීම් අභිප්‍රාය මනාපයක් ඔබේම බ්‍රව්සරයේ පමණක් ගබඩා වන අතර (පහත “දැනුම්දීම් අභිප්‍රාය” බලන්න) එය කිසි විටෙකත් මෙම වේදිකාවේ සේවාදායකවලට ළඟා නොවේ.',
+  'privacy.staffDataTitle': 'කාර්ය මණ්ඩල ගිණුම්',
+  'privacy.staffDataBody':
+    'රෝහල්, දිස්ත්‍රික්-මෙහෙයුම් සහ පරිපාලන ගිණුම් සඳහා: විද්‍යුත් තැපැල් ලිපිනයක්, දර්ශන නාමයක්, පවරන ලද භූමිකාවක්, සහ දිස්ත්‍රික් හෝ පහසුකම් විෂය පථයක්. ගිණුම් නිර්මාණය කරනු ලබන්නේ පරිපාලකයෙකු විසින් මිස ස්වයං-ලියාපදිංචියෙන් නොවේ, සහ මෙය කාර්ය මණ්ඩල සාමාජිකයෙකු සත්‍යාපනය කිරීමට සහ ඔවුන්ට දැකිය හැක්කේ තමන්ගේම පහසුකම හෝ දිස්ත්‍රික්කයට පමණක් සීමා කිරීමට අවශ්‍ය අවම දේ වේ.',
+  'privacy.legalBasisEyebrow': 'නීතිමය පදනම',
+  'privacy.legalBasisTitle': 'මෙම සැකසීම නීත්‍යානුකූල වන්නේ ඇයි',
+  'privacy.legalBasisBody':
+    'මහජන අවදානම් තොරතුරු අමාත්‍යාංශයේ මහජන සෞඛ්‍ය කාර්යභාරය ක්‍රියාත්මක කිරීමේදී ප්‍රකාශයට පත් කරනු ලැබේ — සතිපතා වසංගත රෝග විද්‍යා ප්‍රකාශනයකට කිසිදු එකඟතාවයක් අවශ්‍ය නොවන ආකාරයටම, එය බැලීමට කිසිදු එකඟතාවයක් සොයනු හෝ අවශ්‍ය නොවේ. කාර්ය මණ්ඩල ගිණුම් දත්ත සකසනු ලබන්නේ එම මහජන කාර්යභාරය යටතේම, එය මදුරු මර්දන සැලසුම් සඳහා සීමිත-ප්‍රවේශ පද්ධතියක් මෙහෙයවීමට අවශ්‍ය බවට පදනම මතය; එය මෙම වේදිකාව මෙහෙයවීමෙන් ඔබ්බට කිසිදු අරමුණක් සඳහා භාවිතා නොකරයි.',
+  'privacy.auditEyebrow': 'විගණන ලේඛනය',
+  'privacy.auditTitle': 'කාර්ය මණ්ඩල පිවිසුමක් ගැන වාර්තා වන්නේ කුමක්ද',
+  'privacy.auditBody':
+    'පිවිසීම, ඉවත් වීම, සහ කාර්ය මණ්ඩල පෝට්ලයක් නැරඹීම වාර්තා කරනු ලැබේ — වේලාව, ගිණුම් විද්‍යුත් තැපෑල, භූමිකාව, එම අවස්ථාවේ දිස්ත්‍රික් විෂය පථය, සහ නරඹන ලද පිටුව. මෙය පවතින්නේ අවශ්‍ය නම් "කවුරුන් කුමක් බැලුවේද, කවදාද" යන්නට පරිපාලකයෙකුට පිළිතුරු දීමට ඉඩ දීම සඳහා වන අතර, එය දිස්නීය වන්නේ ජාතික-පරිපාලක ගිණුම් සඳහා පමණි. එය පිටුවක් විවෘත කිරීමෙන් ඔබ්බට එම ගිණුම එම පිටුවේ කළ දේ වාර්තා නොකරන අතර, එය කිසි විටෙකත් කාර්යසාධන අධීක්ෂණය සඳහා හෝ එම වගවීමේ වාර්තාවෙන් ඔබ්බට කිසිදු අරමුණක් සඳහා භාවිතා නොකෙරේ.',
+  'privacy.retentionEyebrow': 'රඳවා ගැනීම',
+  'privacy.retentionTitle': 'දත්ත තබා ගන්නා කාලය',
+  'privacy.retentionStaffTitle': 'කාර්ය මණ්ඩල ගිණුම් වාර්තා',
+  'privacy.retentionStaffBody':
+    'ගිණුමේ ආයු කාලය සඳහා තබා ගනු ලබන අතර, ප්‍රවේශය ඉවත් කරන විට පරිපාලකයෙකු විසින් ඉවත් කරනු ලැබේ.',
+  'privacy.retentionAuditTitle': 'විගණන ලේඛන ඇතුළත් කිරීම්',
+  'privacy.retentionAuditBodyPrefix':
+    'මෙහෙයුම්කරුවෙකු කාලසටහන්ගත මකාදැමීම සක්‍රීය කළ පසු දින 365කට පසු ස්වයංක්‍රීයව මකා දමනු ලැබේ (',
+  'privacy.retentionAuditBodySuffix':
+    '). මෙය මෙම යෙදවීමේ ධාවනය කර නොමැති නම්, ඇතුළත් කිරීම් අනන්තවත් රඳවා තබා ගනු ලැබේ — එය සක්‍රීය කර ඇත්දැයි ඔබේ පරිපාලකයාගෙන් විමසන්න.',
+  'privacy.retentionAggTitle': 'සමස්ත වසංගත රෝග විද්‍යා දත්ත',
+  'privacy.retentionAggBody':
+    'ඓතිහාසික වාර්තාවක් ලෙස රඳවා තබා ගනු ලැබේ — එය කිසි විටෙකත් පුද්ගලික දත්ත නොවන බැවින්, පුද්ගලික දත්ත සඳහා වන PDPA රඳවා ගැනීමේ සීමා එයට අදාළ නොවේ.',
+  'privacy.rightsEyebrow': 'ඔබේ අයිතිවාසිකම්',
+  'privacy.rightsTitle': 'ප්‍රවේශය, නිවැරදි කිරීම, සහ ප්‍රශ්න',
+  'privacy.rightsBody':
+    'PDPA යටතේ, මෙම වේදිකාව ඔබ ගැන දරා ඇති පුද්ගලික දත්ත මොනවාදැයි ඔබට විමසිය හැක, එය වැරදි නම් නිවැරදි කිරීමට ඉල්ලා සිටිය හැක, සහ එය භාවිතා කරන ආකාරය පිළිබඳ ප්‍රශ්න ඇසිය හැක. කාර්ය මණ්ඩල ගිණුමක් සඳහා, වේගවත්ම මාර්ගය ඔබේම පරිපාලකයාය; වෙනත් ඕනෑම දෙයක් සඳහා, මෙම වෙබ් අඩවියේ පාදාසුරු ඇති සම්බන්ධතා විස්තර භාවිතා කරන්න.',
+  'privacy.notCoveredTitle': 'මෙම නිවේදනය ආවරණය නොකරන දේ',
+  'privacy.notCoveredBody':
+    'මෙම පිටුව වේදිකාවේම දත්ත හැසිරවීම ප්‍රකාශ කරයි. එය වසංගත රෝග විද්‍යා අංශය, රෝහල්, හෝ මෙම වේදිකාව කියවා පෙන්වන ප්‍රකාශිත සංඛ්‍යාලේඛන දරන අනෙකුත් ආයතන සතු දත්ත ආවරණය නොකරයි — එම ආයතන ඔවුන්ගේම වාර්තා සඳහා වෙනම පාලකයන් වන අතර, ඒවා පිළිබඳ ඉල්ලීම් ඍජුවම ඔවුන් වෙත යා යුතුය.',
+
+  // --- Staff sign-in ----------------------------------------------------------
+  'signin.introPrefix': 'මහජන අවදානම් තොරතුරු සඳහා ගිණුමක් අවශ්‍ය නොවේ — ',
+  'signin.introLink': 'ඔබේ දිස්ත්‍රික්කය පරීක්ෂා කරන්න',
+  'signin.introSuffix':
+    ' පිවිසීමකින් තොරව. ගිණුමක් රෝහල්, MOH සහ අමාත්‍යාංශ කාර්ය මණ්ඩලය සඳහා වන අතර, ඔබට කළ හැකි දේ සහ ඔබට දැකිය හැකි දිස්ත්‍රික්ක යන දෙකම එය තීරණය කරයි.',
+  'signin.footerNote':
+    'ගිණුම් ජාතික පරිපාලකයෙකු විසින් නිර්මාණය කරනු ලබන්නේ මිස ස්වයං-ලියාපදිංචියෙන් නොවේ. ප්‍රවේශය ඔබේම පහසුකම හෝ දිස්ත්‍රික්කයට සීමා වී ඇත — පිවිසීම එයින් ඔබ්බට වේදිකාව ඔබට පෙන්වන දේ පුළුල් නොකරයි.',
+  'signin.emailLabel': 'විද්‍යුත් තැපැල් ලිපිනය',
+  'signin.passwordLabel': 'මුරපදය',
+  'signin.showPassword': 'මුරපදය පෙන්වන්න',
+  'signin.hidePassword': 'මුරපදය සඟවන්න',
+  'signin.submitting': 'පිවිසෙමින්…',
+  'signin.submit': 'පිවිසෙන්න',
+  'signin.error.missingFields': 'ඔබේ විද්‍යුත් තැපැල් ලිපිනය සහ මුරපදය ඇතුළත් කරන්න.',
+  'signin.error.rateLimited': 'උත්සාහයන් ඉතා වැඩිය. විනාඩි කිහිපයක් රැඳී නැවත උත්සාහ කරන්න.',
+  'signin.error.invalidCredentials': 'එම අක්තපත්‍ර පිළිගත්තේ නැත. ඔබේ විද්‍යුත් තැපෑල සහ මුරපදය පරීක්ෂා කරන්න.',
+
+  // --- Staff-portal access notice --------------------------------------------
+  'notice.staffOnlyTemplate': '{portal} කාර්ය මණ්ඩලයට පමණි',
+  'notice.availableToTemplate':
+    'මෙම පෝට්ලය {roles} සඳහා ලබා ගත හැක. සෑම දිස්ත්‍රික්කයක් සඳහාම මහජන අවදානම් තොරතුරු සඳහා ගිණුමක් අවශ්‍ය නොවේ.',
+  'notice.checkDistrict': 'ඒ වෙනුවට දිස්ත්‍රික්කයක් පරීක්ෂා කරන්න',
+  'notice.footerPrefix': 'මෙහි මහජන දත්ත ',
+  'notice.footerBold': 'පෙරනිමියෙන් ප්‍රතික්ෂේප කරන උප කුලකයකි, සංස්කරණයක් නොවේ',
+  'notice.footerSuffix':
+    ' — මෙම පිටු භූමිකාවක් සැබවින්ම දරන අවසර මත ගොඩනගා ඇත, එබැවින් දෝෂයක් රෝහල් ධාරිතාව හෙළිදරව් කරනවා වෙනුවට තොරතුරු අස්ථානගත වී ඇති බව පෙන්වයි.',
+  'notice.howAccessWorks': 'ප්‍රවේශය ක්‍රියා කරන ආකාරය',
+  'notice.rolesMoh': 'MOH නිලධාරීන්, ප්‍රාදේශීය සෞඛ්‍ය නිලධාරීන් සහ ජාතික පරිපාලකයන්',
+  'notice.rolesHospital': 'රෝහල් කාර්ය මණ්ඩලය, MOH නිලධාරීන් සහ ජාතික පරිපාලකයන්',
+  'notice.rolesAdmin': 'ජාතික පරිපාලකයන්',
 };
 
 const ta: Dictionary = {
@@ -971,6 +1261,152 @@ const ta: Dictionary = {
   'prov.modelled': 'மாதிரியாக்கப்பட்டது',
   'prov.assumed': 'திட்டமிடல் மதிப்பீடு',
   'prov.user_input': 'நீங்கள் உள்ளிட்டது',
+
+  // --- Method page ----------------------------------------------------------
+  'method.crumb': 'இது எவ்வாறு செயல்படுகிறது',
+  'method.eyebrow': 'முறை',
+  'method.title': 'இந்த தளம் எதையும் எவ்வாறு தீர்மானிக்கிறது',
+  'method.description':
+    'மூன்று கட்டங்கள், ஒவ்வொன்றும் முந்தையது பதிலளிக்க முடியாத கேள்விக்கு பதிலளிக்கிறது. அதிக நோயாளர்கள் இருக்கும் மாவட்டத்தை அறிவது, ஒரு குழு அதிக பயனை அளிக்கும் இடத்தை அறிவதற்கு சமமல்ல.',
+  'method.metaPanel': 'தரவுத்தொகுதி',
+  'method.metaDistrictWeeks': 'மாவட்ட-வாரங்கள்',
+  'method.metaLastRun': 'கடைசி இயக்கம்',
+  'method.engineEyebrow': 'இயந்திரம்',
+  'method.engineTitle': 'முன்னறிவிப்பு → காரண விளைவு → ஒதுக்கீடு',
+  'method.engineDescription':
+    'ஒவ்வொரு கட்டமும் ஒரு கலைப்பொருளை (artifact) எழுதுகிறது. டாஷ்போர்டு அந்த கலைப்பொருள்களை படிக்கிறது, ஒருபோதும் மீண்டும் கணக்கிடுவதில்லை — இதனால்தான் ஒரு பரவலின்போது இங்கு ஒரு சறுக்கியை நகர்த்துவது உடனடியாக இருக்கிறது.',
+  'method.stage1': 'கட்டம் 1',
+  'method.stage1Title': 'நிகழ்தகவு மாவட்ட முன்னறிவிப்புகள்',
+  'method.stage1Body':
+    'ஒரு க்வாண்டைல் மாதிரி ஒவ்வொரு மாவட்டத்திற்கும் இரண்டு முதல் நான்கு வாரங்கள் முன்கூட்டியே ஒரு நடுநிலை மற்றும் 80% இடைவெளியை உருவாக்குகிறது. பருவகால நேரடி, SARIMA, க்ரேடியன்ட் பூஸ்டிங் உள்ளிட்ட ஒவ்வொரு அடிப்படை மாதிரியும் ஒவ்வொரு உருள்-தோற்ற மடிப்பிலும் மீண்டும் பொருத்தப்படுகிறது — எனவே எந்த மாதிரியும் அது முன்னறிவிக்கும் வாரத்திற்குப் பிறகான தரவை ஒருபோதும் காணாது. தேசிய கண்ணோட்டத்தில் உள்ள ஒப்பீட்டு அட்டவணை அந்த பின்சோதனையே, ஒரு கூற்று அல்ல.',
+  'method.stage1DetailTemplate': '2 வாரங்களில் {metric} அடிப்படையில் சிறந்தது: {list}.',
+  'method.stage2': 'கட்டம் 2',
+  'method.stage2Title': 'இயந்திரவியல் தலையீட்டு விளைவு',
+  'method.stage2Body':
+    'ஒரு பிரிவு-அடிப்படையிலான SEI-SIR மாதிரி ஒவ்வொரு மாவட்டத்திற்கும் அதன் சொந்த வரலாற்றுக்கு எதிராக பொருத்தப்பட்டு, பின்னர் வெக்டர் கட்டுப்பாடு பயன்படுத்தப்பட்டு மீண்டும் ஒருங்கிணைக்கப்படுகிறது. இரண்டு ஒருங்கிணைப்புகளுக்கும் இடையிலான வேறுபாடே கொடுக்கப்பட்ட குழு-வார எண்ணிக்கைக்கு தவிர்க்கப்பட்ட நோயாளர்கள் — இது ஒரு காரண அளவு, முன்னறிவிப்பில் இருந்து படிக்கப்படும் தொடர்பு அல்ல.',
+  'method.stage2DetailTemplate':
+    'விளைவுகள் {horizon} வார எல்லைக்கு மேல் கணக்கிடப்பட்டு ஒவ்வொரு மாவட்டத்திற்கும் ஒரு வளைவாக சேமிக்கப்படுகின்றன — இதுவே அடுத்த குழு-வாரத்தின் விளிம்பு வருமானத்தை உடனடியாக கிடைக்கச் செய்கிறது.',
+  'method.stage3': 'கட்டம் 3',
+  'method.stage3Title': 'கட்டுப்படுத்தப்பட்ட ஒதுக்கீடு',
+  'method.stage3Body':
+    'ஒரு முழு எண் திட்டம் நிலையான வாராந்திர குழு பட்ஜெட்டை, கட்டம் 2இன் விளைவு வளைவுகளுக்கும் வசதி குறைந்த மாவட்டங்களுக்கான சமத்துவ எல்லைக்கும் உட்பட்டு, மொத்த எதிர்பார்க்கப்படும் தவிர்க்கப்பட்ட நோயாளர்களை அதிகரிக்க பகிர்கிறது. அந்த எல்லையே கொழும்புடன் ஒருபோதும் போட்டியிட முடியாத முழுமையான நோயாளர் எண்ணிக்கை கொண்ட சிறிய, குறைவான சேவை பெறும் மாவட்டங்களை உகப்பாக்கி புறக்கணிக்காமல் தடுக்கிறது.',
+  'method.stage3Detail':
+    'முழு பட்ஜெட் வரம்பும் ஆஃப்லைனில் தீர்க்கப்பட்டு சேமிக்கப்படுகிறது — எனவே பட்ஜெட் சறுக்கி மீண்டும் தீர்ப்பதற்குப் பதிலாக தீர்வுகளை குறிப்பிடுகிறது.',
+  'method.whyForecastEyebrow': 'ஏன் முன்னறிவிக்க வேண்டும்',
+  'method.whyForecastTitle':
+    'அறிவிப்புகளுக்கு எதிர்வினையாற்றுவது ஒரு பதினைந்து நாட்கள் பழைய படத்திற்கு எதிர்வினையாற்றுவதாகும்',
+  'method.whyForecastBody1':
+    'வாராந்திர அறிவிப்புத் தரவில் ஒரு அதிகரிப்பு தோன்றும் நேரத்தில், பரவல் ஏற்கனவே இரண்டு முதல் மூன்று வாரங்களாக நடந்துகொண்டிருக்கிறது: ஒரு கொசு வைரஸைப் பெறுகிறது, வெளிப்புற அடைகாப்பு காலம் கடக்கிறது, ஒரு நபர் தொற்றுகிறார், உள் அடைகாப்பு காலம் கடக்கிறது, அவர்கள் சிகிச்சை தேடுகிறார்கள், மற்றும் வழக்கு அறிவிக்கப்படுகிறது. அந்த நேரத்தில் அனுப்பப்படும் குழுக்கள் ஏற்கனவே உடைந்த ஒரு அலையை சிகிச்சை செய்கின்றன.',
+  'method.whyForecastBody2':
+    'மழையே முன்கூட்டிய சமிக்ஞையை சாத்தியமாக்குகிறது. மழை பாத்திரங்களை நிரப்புகிறது, லார்வாக்கள் வளர்கின்றன, வயது வந்தவை வெளிப்படுகின்றன, அதன் பிறகுதான் பரவல் அதிகரிக்கிறது — முன்னறிவிப்பு பயன்படுத்தும் தோராயமாக ஆறு முதல் எட்டு வாரங்கள் தாமதம்.',
+  'method.riskBandsEyebrow': 'அபாய நிலைகள்',
+  'method.riskBandsTitle': 'ஏன் வழக்கு எண்ணிக்கை அல்ல, பரவல் விகிதம்',
+  'method.riskBandsDescription':
+    'கொழும்பில் 2.48 மில்லியன் குடியிருப்பாளர்கள் உள்ளனர், முல்லைத்தீவில் சுமார் 100,000 பேர் உள்ளனர். மாவட்டங்களை மூல எண்ணிக்கை மூலம் தரவரிசைப்படுத்துவது ஆண்டின் ஒவ்வொரு வாரமும் கொழும்பை சிவப்பாக வரைந்து, உண்மையான முல்லைத்தீவு பரவலை பச்சையாக விடும்.',
+  'method.riskBandBelow': '1.5க்கு கீழ்',
+  'method.riskBandAndAboveTemplate': '{threshold} மற்றும் அதற்கு மேல்',
+  'method.riskBandPerWeek': '100,000 பேருக்கு வாரத்திற்கு',
+  'method.riskBandsCalloutPrefix': 'இவை ',
+  'method.riskBandsCalloutBold': 'செயல்பாட்டு திட்டமிடல் வரம்புகள், மருத்துவ தரநிலை அல்ல',
+  'method.riskBandsCalloutSuffix':
+    '. டெங்கு பரவலை வரையறுக்கும் சர்வதேச அளவில் ஒப்புக் கொள்ளப்பட்ட ஒரு பரவல் வெட்டு-முறை எதுவும் இல்லை — வெளியிடப்பட்ட வரம்புகள் நோய்-பரவல்-குறிப்பிட்டவை மற்றும் பொதுவாக நாடு வாரியாக பெறப்படுகின்றன. அவை உண்மையான மாவட்ட-வார பரவலுக்கு எதிராக மறு அளவீடு செய்யப்பட்டு, மீண்டும் மறு அளவீடு செய்யக்கூடிய மாறிலிகளாக வெளிப்படுத்தப்பட்டுள்ளன.',
+  'method.provenanceEyebrow': 'மூலாதாரம்',
+  'method.provenanceTitle': 'ஒவ்வொரு அளவும் அது என்ன என்பதைக் கூறுகிறது',
+  'method.provenanceDescription':
+    'ஒழுக்கத்தால் அல்ல, குறியீட்டால் அமல்படுத்தப்பட்டது: ஒரு திட்டமிடல் மதிப்பீடாக குறிக்கப்பட்ட ஒரு அளவை அதன் அடிப்படையைக் கூறாமல் இயந்திரத்தில் உருவாக்க முடியாது.',
+  'method.provenanceCalloutBold': 'பொது தரவு இல்லாத இடத்தில், தளம் அவ்வாறே கூறுகிறது.',
+  'method.provenanceCalloutSuffix':
+    ' நேரடி படுக்கை ஆக்கிரமிப்பு, ஐசியு கணக்கெடுப்பு, பிளேட்லெட் இருப்பு, பணியாளர் பட்டியல்கள் மற்றும் ஆம்புலன்ஸ் இருப்பிடங்கள் இலங்கைக்கு வெளியிடப்படவில்லை. அந்த பலகங்கள் நம்பகமாகத் தோன்றும் எண்ணிக்கைக்கு பதிலாக, அவற்றை இயக்கக்கூடிய ஊட்டத்தை பெயரிட்டு ஒரு விளக்கத்தை காட்டுகின்றன.',
+  'method.accessEyebrow': 'அணுகல்',
+  'method.accessTitle': 'அனுமதிகள் கூட்டு; எல்லை தனி',
+  'method.accessDescription':
+    'ஒரு மருத்துவமனை நிர்வாகியும் ஒரு MOH அதிகாரியும் முற்றிலும் வேறுபட்ட வரிசைகளைப் பார்க்கும் அதே வேளையில் ஒன்றுடன் ஒன்று அனுமதிகளை வைத்திருக்க முடியும் — ஒன்று ஒரு வசதிக்கு உட்பட்டது, மற்றொன்று ஒரு மாவட்டத்திற்கு. இரண்டையும் ஒரே நிலைக்குள் சுருக்குவது ஒரு சுகாதார டாஷ்போர்டு பிராந்தியங்கள் முழுவதும் தரவை கசிய வைக்கும் வழக்கமான வழியாகும்.',
+  'method.permissionsCountTemplate': '{n} அனுமதிகள்',
+  'method.accessCalloutPrefix': 'பொது பக்கங்கள் ஒரு ',
+  'method.accessCalloutBold': 'இயல்பாக-மறுக்கும் துணைக்குழு, ஒரு தணிக்கை அல்ல',
+  'method.accessCalloutSuffix':
+    '. முழு படத்தையும் கணக்கிட்டு அதன் பகுதிகளை மறைப்பதற்குப் பதிலாக, பொது பங்கு உண்மையில் வைத்திருக்கும் அனுமதிகளின் அடிப்படையில் அவை கட்டமைக்கப்பட்டுள்ளன — எனவே இங்கு ஒரு பிழை மருத்துவமனை ஆக்கிரமிப்பை வெளிப்படுத்துவதற்குப் பதிலாக விடுபட்ட தகவலைக் காட்டுகிறது.',
+  'method.decisionSupportTitle': 'முடிவு ஆதரவு, மருத்துவ கருவி அல்ல',
+  'method.decisionSupportBody':
+    'இந்த தளத்தில் எதுவும் ஒரு நோயாளியை கண்டறியவோ சிகிச்சையை பரிந்துரைக்கவோ செய்யாது. வரையறுக்கப்பட்ட பொது சுகாதார திறனை ஒதுக்க உதவ மாவட்ட அளவிலான அபாயம் மற்றும் வள தாக்கங்களை இது விவரிக்கிறது — மேலும் இது காட்டும் ஒவ்வொரு புள்ளிவிவரமும் அதன் அருகில் கூறப்பட்ட அனுமானத்தைப் போலவே நல்லது.',
+
+  // --- Data protection (PDPA) notice -----------------------------------------
+  'privacy.eyebrow': 'சட்டம்',
+  'privacy.description':
+    'இலங்கையின் 2022ஆம் ஆண்டின் 9ஆம் இலக்க தனிநபர் தரவு பாதுகாப்பு சட்டத்தின் கீழ், இந்த தளம் எதை சேகரிக்கிறது, ஏன், எவ்வளவு காலம் வைத்திருக்கிறது, மற்றும் உங்கள் சொந்த தரவைப் பற்றி எவ்வாறு கேட்பது.',
+  'privacy.notice':
+    'இந்த அறிவிப்பு கட்டமைக்கப்பட்டவாறு தளத்தை விவரிக்கிறது. கீழே உள்ள எதுவும் இயங்கும் அமைப்பு உண்மையில் செய்வதுடன் பொருந்தாமல் நின்றால், அமைப்பு தவறானது, இந்த அறிவிப்பு அல்ல — அவற்றை மீண்டும் ஒப்புமைக்கு கொண்டு வர, இந்த பக்கத்தை அல்ல, குறியீட்டை புதுப்பிக்கவும்.',
+  'privacy.controllerEyebrow': 'கட்டுப்படுத்துபவர்',
+  'privacy.controllerTitle': 'இந்த தளத்தை இயக்குபவர் யார்',
+  'privacy.controllerBody':
+    'இலங்கை சுகாதார அமைச்சகம் கீழே விவரிக்கப்பட்ட தனிநபர் தரவுக்கான கட்டுப்படுத்துபவர் ஆகும். உங்கள் சொந்த தரவு தொடர்பான கோரிக்கைகள் — அணுகல், திருத்தம், அல்லது அது எவ்வாறு பயன்படுத்தப்படுகிறது என்பது பற்றிய கேள்வி — இந்த தளத்தின் அடிக்குறிப்பில் உள்ள தொடர்பு வழிகள் மூலம் அமைச்சகத்திற்கு அனுப்பப்பட வேண்டும்.',
+  'privacy.collectedEyebrow': 'சேகரிக்கப்படுவது என்ன',
+  'privacy.collectedTitle': 'இந்த தளத்தில் உள்ள இரண்டு வகையான தரவு',
+  'privacy.publicDataTitle': 'பொது அபாய தகவல்',
+  'privacy.publicDataBody':
+    'மாவட்ட அளவிலான முன்னறிவிப்புகள், வழக்கு எண்ணிக்கைகள் மற்றும் அபாய நிலைகள். இது மொத்த தொற்றியல் தரவு — இதில் எந்த தனிநபரும் அடையாளம் காணப்படவில்லை அல்லது அடையாளம் காணக்கூடியதாக இல்லை, மேலும் அதைப் பார்க்க வருபவரிடமிருந்து எந்த தனிப்பட்ட தரவும் சேகரிக்கப்படவில்லை. ஒரு மாவட்டத்தையோ மொழியையோ தேர்ந்தெடுப்பது, மற்றும் நீங்கள் அமைக்கும் எந்த எச்சரிக்கை விருப்பமும் உங்கள் சொந்த உலாவியில் மட்டுமே சேமிக்கப்படுகிறது (கீழே "எச்சரிக்கை விருப்பங்கள்" பார்க்கவும்) மற்றும் இந்த தளத்தின் சேவையகங்களை ஒருபோதும் அடையாது.',
+  'privacy.staffDataTitle': 'ஊழியர் கணக்குகள்',
+  'privacy.staffDataBody':
+    'மருத்துவமனை, மாவட்ட-செயல்பாடுகள் மற்றும் நிர்வாக கணக்குகளுக்கு: ஒரு மின்னஞ்சல் முகவரி, ஒரு காட்சி பெயர், ஒதுக்கப்பட்ட பங்கு, மற்றும் ஒரு மாவட்ட அல்லது வசதி எல்லை. கணக்குகள் சுய-பதிவின் மூலம் அல்லாமல் ஒரு நிர்வாகியால் உருவாக்கப்படுகின்றன, மேலும் இது ஒரு ஊழியரை அங்கீகரிக்கவும் அவர்கள் பார்க்கக்கூடியதை அவர்களின் சொந்த வசதி அல்லது மாவட்டத்திற்கு மட்டுப்படுத்தவும் தேவையான குறைந்தபட்சமாகும்.',
+  'privacy.legalBasisEyebrow': 'சட்ட அடிப்படை',
+  'privacy.legalBasisTitle': 'இந்த செயலாக்கம் ஏன் சட்டபூர்வமானது',
+  'privacy.legalBasisBody':
+    'பொது அபாய தகவல் அமைச்சகத்தின் பொது சுகாதார செயல்பாட்டைச் செயல்படுத்துவதில் வெளியிடப்படுகிறது — வாராந்திர தொற்றியல் அறிக்கைக்கு ஒப்புதல் தேவையில்லாத அதே வழியில், அதைப் பார்க்க ஒப்புதல் எதுவும் தேவையில்லை. ஊழியர் கணக்குத் தரவு அதே பொது செயல்பாட்டின் கீழ் செயலாக்கப்படுகிறது, வெக்டர்-கட்டுப்பாடு திட்டமிடலுக்கான கட்டுப்படுத்தப்பட்ட-அணுகல் அமைப்பை இயக்க அது அவசியம் என்ற அடிப்படையில்; இது இந்த தளத்தை இயக்குவதற்கு அப்பால் எந்த நோக்கத்திற்கும் பயன்படுத்தப்படாது.',
+  'privacy.auditEyebrow': 'தணிக்கை பதிவு',
+  'privacy.auditTitle': 'ஒரு ஊழியர் உள்நுழைவைப் பற்றி என்ன பதிவு செய்யப்படுகிறது',
+  'privacy.auditBody':
+    'உள்நுழைவது, வெளியேறுவது, மற்றும் ஒரு ஊழியர் போர்ட்டலைப் பார்ப்பது பதிவு செய்யப்படுகிறது — நேர முத்திரை, கணக்கு மின்னஞ்சல், பங்கு, அந்த நேரத்தில் மாவட்ட எல்லை, மற்றும் எந்த பக்கம் பார்க்கப்பட்டது. தேவைப்பட்டால் "யார் என்ன பார்த்தார்கள், எப்போது" என்பதற்கு ஒரு நிர்வாகி பதிலளிக்க இது இருக்கிறது, மேலும் இது தேசிய-நிர்வாகி கணக்குகளுக்கு மட்டுமே தெரியும். இது எந்த பக்கம் திறக்கப்பட்டது என்பதற்கு அப்பால் எந்த கணக்கும் ஒரு பக்கத்தில் என்ன செய்தது என்பதை பதிவு செய்யாது, மேலும் இது செயல்திறன் கண்காணிப்புக்கோ அந்த பொறுப்புணர்வு பதிவுக்கு அப்பால் எந்த நோக்கத்திற்கோ ஒருபோதும் பயன்படுத்தப்படாது.',
+  'privacy.retentionEyebrow': 'தக்கவைப்பு',
+  'privacy.retentionTitle': 'தரவு எவ்வளவு காலம் வைத்திருக்கப்படுகிறது',
+  'privacy.retentionStaffTitle': 'ஊழியர் கணக்கு பதிவுகள்',
+  'privacy.retentionStaffBody':
+    'கணக்கின் வாழ்நாள் முழுவதும் வைக்கப்படுகிறது, மற்றும் அணுகல் திரும்பப் பெறப்படும்போது ஒரு நிர்வாகியால் அகற்றப்படுகிறது.',
+  'privacy.retentionAuditTitle': 'தணிக்கை பதிவு உள்ளீடுகள்',
+  'privacy.retentionAuditBodyPrefix':
+    'ஒரு இயக்குனர் திட்டமிடப்பட்ட அகற்றலை இயக்கிய பிறகு 365 நாட்களுக்குப் பிறகு தானாக நீக்கப்படும் (',
+  'privacy.retentionAuditBodySuffix':
+    '). இது இந்த வரிசைப்படுத்தலில் இயக்கப்படாத வரை, உள்ளீடுகள் காலவரையின்றி தக்கவைக்கப்படும் — அது இயக்கப்பட்டதா என்று உங்கள் நிர்வாகியிடம் கேளுங்கள்.',
+  'privacy.retentionAggTitle': 'மொத்த தொற்றியல் தரவு',
+  'privacy.retentionAggBody':
+    'ஒரு வரலாற்று பதிவாக தக்கவைக்கப்படுகிறது — இது ஒருபோதும் தனிப்பட்ட தரவு அல்ல, எனவே தனிப்பட்ட தரவுக்கான PDPA தக்கவைப்பு வரம்புகள் அதற்கு பொருந்தாது.',
+  'privacy.rightsEyebrow': 'உங்கள் உரிமைகள்',
+  'privacy.rightsTitle': 'அணுகல், திருத்தம், மற்றும் கேள்விகள்',
+  'privacy.rightsBody':
+    'PDPA இன் கீழ், இந்த தளம் உங்களைப் பற்றி வைத்திருக்கும் தனிப்பட்ட தரவு என்ன என்று நீங்கள் கேட்கலாம், அது தவறாக இருந்தால் திருத்தப்பட வேண்டும் என்று கேட்கலாம், மேலும் அது எவ்வாறு பயன்படுத்தப்படுகிறது என்பது பற்றிய கேள்விகளைக் கேட்கலாம். ஒரு ஊழியர் கணக்கிற்கு, வேகமான வழி உங்கள் சொந்த நிர்வாகி; வேறு எதற்கும், இந்த தளத்தின் அடிக்குறிப்பில் உள்ள தொடர்பு விவரங்களைப் பயன்படுத்தவும்.',
+  'privacy.notCoveredTitle': 'இந்த அறிவிப்பு உள்ளடக்காதது',
+  'privacy.notCoveredBody':
+    'இந்த பக்கம் தளத்தின் சொந்த தரவு கையாளுதலை கூறுகிறது. இது தொற்றியல் பிரிவு, மருத்துவமனைகள், அல்லது இந்த தளம் படித்து காட்டும் வெளியிடப்பட்ட புள்ளிவிவரங்களை வைத்திருக்கும் பிற அமைப்புகளின் தரவை உள்ளடக்காது — அந்த அமைப்புகள் தங்கள் சொந்த பதிவுகளுக்கு தனி கட்டுப்படுத்துபவர்கள், மேலும் அவை பற்றிய கோரிக்கைகள் நேரடியாக அவர்களுக்கு செல்ல வேண்டும்.',
+
+  // --- Staff sign-in ----------------------------------------------------------
+  'signin.introPrefix': 'பொது அபாய தகவலுக்கு கணக்கு தேவையில்லை — ',
+  'signin.introLink': 'உங்கள் மாவட்டத்தை சரிபார்க்கவும்',
+  'signin.introSuffix':
+    ' உள்நுழையாமல். ஒரு கணக்கு மருத்துவமனை, MOH மற்றும் அமைச்சக ஊழியர்களுக்கானது, மேலும் நீங்கள் என்ன செய்யலாம் மற்றும் எந்த மாவட்டங்களை பார்க்கலாம் என்பதை இது தீர்மானிக்கிறது.',
+  'signin.footerNote':
+    'கணக்குகள் சுய-பதிவின் மூலம் அல்லாமல் ஒரு தேசிய நிர்வாகியால் உருவாக்கப்படுகின்றன. அணுகல் உங்கள் சொந்த வசதி அல்லது மாவட்டத்திற்கு மட்டுப்படுத்தப்பட்டுள்ளது — உள்நுழைவது அதற்கு அப்பால் தளம் உங்களுக்குக் காட்டுவதை விரிவுபடுத்தாது.',
+  'signin.emailLabel': 'மின்னஞ்சல் முகவரி',
+  'signin.passwordLabel': 'கடவுச்சொல்',
+  'signin.showPassword': 'கடவுச்சொல்லைக் காட்டு',
+  'signin.hidePassword': 'கடவுச்சொல்லை மறை',
+  'signin.submitting': 'உள்நுழைகிறது…',
+  'signin.submit': 'உள்நுழைக',
+  'signin.error.missingFields': 'உங்கள் மின்னஞ்சல் முகவரி மற்றும் கடவுச்சொல்லை உள்ளிடவும்.',
+  'signin.error.rateLimited': 'முயற்சிகள் அதிகம். சில நிமிடங்கள் காத்திருந்து மீண்டும் முயற்சிக்கவும்.',
+  'signin.error.invalidCredentials': 'அந்த சான்றுகள் ஏற்கப்படவில்லை. உங்கள் மின்னஞ்சல் மற்றும் கடவுச்சொல்லைச் சரிபார்க்கவும்.',
+
+  // --- Staff-portal access notice --------------------------------------------
+  'notice.staffOnlyTemplate': '{portal} ஊழியர்களுக்கு மட்டுமே',
+  'notice.availableToTemplate':
+    'இந்த போர்ட்டல் {roles} க்கு கிடைக்கும். ஒவ்வொரு மாவட்டத்திற்கும் பொது அபாய தகவலுக்கு கணக்கு தேவையில்லை.',
+  'notice.checkDistrict': 'அதற்கு பதிலாக ஒரு மாவட்டத்தை சரிபார்க்கவும்',
+  'notice.footerPrefix': 'இங்குள்ள பொது தரவு ஒரு ',
+  'notice.footerBold': 'இயல்பாக-மறுக்கும் துணைக்குழு, ஒரு தணிக்கை அல்ல',
+  'notice.footerSuffix':
+    ' — இந்த பக்கங்கள் ஒரு பங்கு உண்மையில் வைத்திருக்கும் அனுமதிகளிலிருந்து கட்டமைக்கப்பட்டுள்ளன, எனவே ஒரு பிழை மருத்துவமனை ஆக்கிரமிப்பை வெளிப்படுத்துவதற்குப் பதிலாக விடுபட்ட தகவலைக் காட்டுகிறது.',
+  'notice.howAccessWorks': 'அணுகல் எவ்வாறு செயல்படுகிறது',
+  'notice.rolesMoh': 'MOH அதிகாரிகள், பிராந்திய சுகாதார அதிகாரிகள் மற்றும் தேசிய நிர்வாகிகள்',
+  'notice.rolesHospital': 'மருத்துவமனை ஊழியர்கள், MOH அதிகாரிகள் மற்றும் தேசிய நிர்வாகிகள்',
+  'notice.rolesAdmin': 'தேசிய நிர்வாகிகள்',
 };
 
 export const DICTIONARIES: Record<Locale, Dictionary> = { en, si, ta };

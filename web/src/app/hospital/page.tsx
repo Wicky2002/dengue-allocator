@@ -46,8 +46,8 @@ export default async function HospitalPage({
   if (!can(session.principal, 'view_hospital_readiness')) {
     return (
       <AccessNotice
-        portal="Hospital readiness"
-        requiredRoles="hospital staff, MOH officers and national administrators"
+        portalKey="nav.hospital"
+        requiredRolesKey="notice.rolesHospital"
         signedIn={session.signedIn}
         configurationError={session.configurationError}
       />

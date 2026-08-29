@@ -42,8 +42,8 @@ export default async function MohPage({
   if (!can(session.principal, 'view_district_operations')) {
     return (
       <AccessNotice
-        portal="District operations"
-        requiredRoles="MOH officers, regional health officers and national administrators"
+        portalKey="nav.moh"
+        requiredRolesKey="notice.rolesMoh"
         signedIn={session.signedIn}
         configurationError={session.configurationError}
       />

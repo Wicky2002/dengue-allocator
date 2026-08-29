@@ -63,31 +63,35 @@ export function Header({
           </Link>
 
           <div className="flex items-center gap-3">
-            {/* "Staff sign in" is deliberately absent here for a signed-out
-                visitor -- this header renders on every public page, so a
-                link here would advertise the login form to every anonymous
-                visitor and automated scanner. It's still one click away for
-                anyone who is actual staff: the footer keeps a plain-text
-                link (see Footer.tsx), which is enough for someone who
-                already knows to look and doesn't put it in front of a
-                casual visitor or a bot walking the nav. The route itself
-                (`/signin`) isn't secret -- rate limiting and the account
-                boundary are the real protection, not the link's absence --
-                this only trims the easiest, laziest way to find it. */}
             {signedInAs ? (
               <>
                 <span className="hidden text-right sm:block">
                   <span className="block text-[13px] font-semibold text-white">{signedInAs}</span>
                   <span className="block text-[11px] text-primary-200">{roleLabel}</span>
                 </span>
-                <Link
+                {/* A plain <a>, not <Link> -- /signout is a Route Handler that
+                    clears the session cookie and redirects. Link's client-side
+                    navigation reuses the Router Cache, which still holds the
+                    signed-in root layout render from before the cookie was
+                    cleared, so the header would keep showing "signed in" until
+                    an unrelated hard refresh. An anchor forces a real page
+                    load, so the layout re-reads the (now signed-out) session
+                    immediately. */}
+                <a
                   href="/signout"
                   className="hidden rounded border border-white/30 px-3 py-1.5 text-[13px] font-medium text-white hover:bg-white/10 sm:block"
                 >
                   {t('nav.signOut')}
-                </Link>
+                </a>
               </>
-            ) : null}
+            ) : (
+              <Link
+                href="/signin"
+                className="hidden rounded border border-white/30 px-3 py-1.5 text-[13px] font-medium text-white hover:bg-white/10 sm:block"
+              >
+                {t('nav.signIn')}
+              </Link>
+            )}
             <button
               type="button"
               onClick={() => setOpen((value) => !value)}
@@ -144,15 +148,25 @@ export function Header({
               </Link>
             ))}
             {signedInAs ? (
-              <Link
+              // Plain <a>, same reason as the desktop sign-out link above.
+              <a
                 href="/signout"
                 onClick={() => setOpen(false)}
                 className="inline-flex items-center gap-2 px-1 py-3 text-sm font-semibold text-primary-700"
               >
                 <UserCircleIcon className="h-4 w-4" aria-hidden />
                 {t('nav.signOut')}
+              </a>
+            ) : (
+              <Link
+                href="/signin"
+                onClick={() => setOpen(false)}
+                className="inline-flex items-center gap-2 px-1 py-3 text-sm font-semibold text-primary-700"
+              >
+                <UserCircleIcon className="h-4 w-4" aria-hidden />
+                {t('nav.signIn')}
               </Link>
-            ) : null}
+            )}
           </Container>
         </nav>
       ) : null}
