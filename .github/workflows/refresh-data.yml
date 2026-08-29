@@ -31,9 +31,39 @@ permissions:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 30 was sized for what this job used to actually do: silently no-op
+    # through `make data` (a since-fixed venv bug meant every ingest command
+    # failed with "command not found" before ever making a network call) and
+    # spend its whole budget on `make pipeline-real`, which alone runs in
+    # ~150s. Now that `make data` really ingests, a cold run with no cache
+    # yet (see the cache step below) downloads the full Open-Meteo backfill
+    # since 2010 and all ~237 WER PDFs from scratch, which does not fit in
+    # 30 minutes -- confirmed by run 33268245478, killed mid-WER-download at
+    # the timeout. Once the cache below is warm, later runs only fetch what's
+    # new (a handful of records) and should again finish in a couple of
+    # minutes; 90 is headroom for the one-time cold run and for a source
+    # being genuinely slow one day, not the steady-state expectation.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+
+      - name: Cache raw ingest downloads
+        # dengue.utils.io's fetch_json_cached/download_binary already skip
+        # re-fetching anything already on disk under data/raw/ ("re-running
+        # an ingest with identical arguments makes zero network calls") --
+        # but data/ is gitignored and CI starts from a clean checkout every
+        # run, so without this cache that on-disk check never gets to help:
+        # every scheduled run re-downloads the entire historical archive
+        # from scratch instead of just the new week. restore-keys falls
+        # back to the most recent cache under the same prefix if today's
+        # exact key (this run's id) hasn't been saved yet, so the cache
+        # keeps accumulating run over run rather than resetting.
+        uses: actions/cache@v4
+        with:
+          path: data/raw
+          key: refresh-data-raw-${{ github.run_id }}
+          restore-keys: |
+            refresh-data-raw-
 
       - uses: actions/setup-python@v5
         with:
