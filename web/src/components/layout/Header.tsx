@@ -3,12 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-  Bars3Icon,
-  XMarkIcon,
-  ArrowRightOnRectangleIcon,
-  UserCircleIcon,
-} from '@heroicons/react/24/outline';
+import { Bars3Icon, XMarkIcon, UserCircleIcon } from '@heroicons/react/24/outline';
 import { Container } from '@/components/ui/Container';
 import { Emblem } from './GovBanner';
 import { useT } from '@/components/i18n/LocaleProvider';
@@ -68,6 +63,17 @@ export function Header({
           </Link>
 
           <div className="flex items-center gap-3">
+            {/* "Staff sign in" is deliberately absent here for a signed-out
+                visitor -- this header renders on every public page, so a
+                link here would advertise the login form to every anonymous
+                visitor and automated scanner. It's still one click away for
+                anyone who is actual staff: the footer keeps a plain-text
+                link (see Footer.tsx), which is enough for someone who
+                already knows to look and doesn't put it in front of a
+                casual visitor or a bot walking the nav. The route itself
+                (`/signin`) isn't secret -- rate limiting and the account
+                boundary are the real protection, not the link's absence --
+                this only trims the easiest, laziest way to find it. */}
             {signedInAs ? (
               <>
                 <span className="hidden text-right sm:block">
@@ -81,15 +87,7 @@ export function Header({
                   {t('nav.signOut')}
                 </Link>
               </>
-            ) : (
-              <Link
-                href="/signin"
-                className="hidden items-center gap-2 rounded border border-white/30 px-3.5 py-2 text-[13px] font-medium text-white hover:bg-white/10 sm:inline-flex"
-              >
-                <ArrowRightOnRectangleIcon className="h-4 w-4" aria-hidden />
-                {t('nav.signIn')}
-              </Link>
-            )}
+            ) : null}
             <button
               type="button"
               onClick={() => setOpen((value) => !value)}
@@ -145,14 +143,16 @@ export function Header({
                 {t(item.labelKey)}
               </Link>
             ))}
-            <Link
-              href={signedInAs ? '/signout' : '/signin'}
-              onClick={() => setOpen(false)}
-              className="inline-flex items-center gap-2 px-1 py-3 text-sm font-semibold text-primary-700"
-            >
-              <UserCircleIcon className="h-4 w-4" aria-hidden />
-              {signedInAs ? t('nav.signOut') : t('nav.signIn')}
-            </Link>
+            {signedInAs ? (
+              <Link
+                href="/signout"
+                onClick={() => setOpen(false)}
+                className="inline-flex items-center gap-2 px-1 py-3 text-sm font-semibold text-primary-700"
+              >
+                <UserCircleIcon className="h-4 w-4" aria-hidden />
+                {t('nav.signOut')}
+              </Link>
+            ) : null}
           </Container>
         </nav>
       ) : null}

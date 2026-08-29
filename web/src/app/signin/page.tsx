@@ -20,7 +20,14 @@ import { ROLES } from '@/lib/rbac';
  */
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = { title: 'Staff sign in' };
+export const metadata: Metadata = {
+  title: 'Staff sign in',
+  // Kept out of search results for the same reason it's out of the main
+  // nav -- the route itself isn't secret and this is no substitute for real
+  // access control, it just stops the page turning up in a search for
+  // "dengue allocator admin" or similar.
+  robots: { index: false, follow: false },
+};
 
 export default async function SignInPage() {
   const session = await getSession();
