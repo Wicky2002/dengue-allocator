@@ -2,7 +2,7 @@
   "exported": {
     "pipeline_meta": 1,
     "district_risk": 75,
-    "panel_recent": 2700,
+    "panel_recent": 2600,
     "forecasts": 75,
     "scores": 480,
     "effect_table": 325,
@@ -14,7 +14,7 @@
     "health_facilities": 1233,
     "scenarios": 64,
     "budget_sweep": 80,
-    "predictions_history": 150,
+    "predictions_history": 750,
     "assessments": 225,
     "districts": 25,
     "districts.geojson": 1,
