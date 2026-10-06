@@ -14,7 +14,7 @@
     "health_facilities": 1233,
     "scenarios": 64,
     "budget_sweep": 80,
-    "predictions_history": 550,
+    "predictions_history": 625,
     "assessments": 225,
     "districts": 25,
     "districts.geojson": 1,
